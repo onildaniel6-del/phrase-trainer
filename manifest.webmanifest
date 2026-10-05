@@ -1,0 +1,8 @@
+{
+  "name": "Phrase Trainer",
+  "short_name": "Phrases",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#030712"
+}

@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#030712">
+<title>Phrase Trainer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root { --bg:#030712; --panel:#111827; --line:#1f2937; --text:#f3f4f6; --muted:#9ca3af; --dim:#6b7280;
+          --blue:#2563eb; --green:#059669; --red:#b91c1c; --amber:#fbbf24; --ok:#34d399; --bad:#f87171; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .wrap { max-width:640px; margin:0 auto; padding:16px; }
+  header { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:baseline; margin-bottom:16px; }
+  header h1 { font-size:18px; margin:0; margin-right:auto; }
+  .stat { font:12px ui-monospace,Consolas,monospace; color:var(--muted); }
+  .stat b { color:var(--text); }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .mode { font:11px ui-monospace,Consolas,monospace; text-transform:uppercase; color:var(--dim); margin-bottom:10px; }
+  .prompt { font-size:20px; line-height:1.4; margin:0 0 8px; }
+  .ru { color:var(--muted); font-size:15px; margin:0 0 14px; }
+  .opts { display:grid; gap:8px; }
+  button { font:inherit; color:var(--text); background:#1f2937; border:1px solid #374151; border-radius:10px; padding:12px 14px; cursor:pointer; text-align:left; }
+  button:hover { background:#273449; }
+  button.primary { background:var(--blue); border-color:var(--blue); text-align:center; }
+  button.right { border-color:var(--ok); color:var(--ok); }
+  button.wrong { border-color:var(--bad); color:var(--bad); }
+  button:disabled { opacity:.45; cursor:default; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .row > button { flex:1; text-align:center; }
+  input[type=text] { width:100%; font:inherit; font-size:18px; color:var(--text); background:#0b1220; border:1px solid #374151; border-radius:10px; padding:12px; }
+  input[type=text]:focus { outline:none; border-color:var(--blue); }
+  .feedback { margin-top:14px; padding:12px; border-radius:10px; background:#0b1220; }
+  .feedback .answer { color:var(--amber); font-weight:600; }
+  .feedback .ctx { color:var(--muted); font-style:italic; margin-top:6px; }
+  .good { color:var(--ok); } .bad { color:var(--bad); }
+  .muted { color:var(--muted); font-size:14px; }
+  .small { font:12px ui-monospace,Consolas,monospace; color:var(--dim); }
+  .hidden { display:none !important; }
+  .bar { height:4px; background:var(--line); border-radius:4px; overflow:hidden; margin-bottom:14px; }
+  .bar > div { height:100%; background:var(--blue); width:0; transition:width .3s; }
+  .tools { margin-top:22px; display:flex; flex-wrap:wrap; gap:8px; }
+  .tools button, .tools label { font-size:13px; padding:8px 10px; }
+  label.btn { display:inline-block; background:#1f2937; border:1px solid #374151; border-radius:10px; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Phrase Trainer</h1>
+    <span class="stat">сегодня <b id="sToday">0</b> · <b id="sMin">0</b> мин</span>
+    <span class="stat">к повторению <b id="sDue">0</b> · новых <b id="sNew">0</b></span>
+    <span class="stat">выучено <b id="sLearned">0</b>/<b id="sTotal">0</b></span>
+  </header>
+
+  <div id="noDeck" class="panel hidden">
+    <p>Колода не найдена. В приложении: вкладка «Тренажёр фраз» → «Собрать колоду», затем обнови страницу.</p>
+  </div>
+
+  <!-- Старт -->
+  <div id="start" class="panel hidden">
+    <p class="prompt" id="startTitle"></p>
+    <p class="muted" id="startNote"></p>
+    <div class="row" style="margin-top:14px"><button class="primary" id="btnStart">Начать</button></div>
+    <p class="small" style="margin-top:12px">Новых в день: <select id="newLimit"><option>10</option><option selected>15</option><option>20</option><option>30</option></select></p>
+  </div>
+
+  <!-- Карточка -->
+  <div id="card" class="hidden">
+    <div class="bar"><div id="progressBar"></div></div>
+    <div class="panel">
+      <div class="mode" id="mode"></div>
+      <p class="prompt" id="prompt"></p>
+      <p class="ru" id="ru"></p>
+
+      <div id="choice" class="opts hidden"></div>
+
+      <div id="typeBox" class="hidden">
+        <input type="text" id="typeInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Впиши фразу на английском">
+        <div class="row" style="margin-top:10px"><button class="primary" id="btnCheck">Проверить</button></div>
+      </div>
+
+      <div id="recallBox" class="hidden">
+        <p class="muted">Скажи фразу вслух по-английски, потом открой ответ.</p>
+        <div class="row"><button class="primary" id="btnReveal">Показать ответ</button></div>
+      </div>
+
+      <div id="feedback" class="feedback hidden">
+        <div id="verdict"></div>
+        <div class="answer" id="answer"></div>
+        <div class="ctx" id="ctx"></div>
+        <div class="row" style="margin-top:12px" id="gradeRow">
+          <button id="gWrong">Не вспомнил</button><button id="gHard">С трудом</button><button id="gRight">Легко</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button id="btnSpeak">🔊 Послушать</button>
+          <button class="primary" id="btnNext">Дальше ↵</button>
+        </div>
+      </div>
+    </div>
+    <p class="small" style="margin-top:10px" id="cardInfo"></p>
+  </div>
+
+  <!-- Итог -->
+  <div id="done" class="panel hidden">
+    <p class="prompt" id="doneTitle"></p>
+    <p class="muted" id="doneNote"></p>
+    <div class="row" style="margin-top:14px"><button class="primary" id="btnExport2">Экспорт прогресса для учителя</button></div>
+  </div>
+
+  <div class="tools">
+    <button id="btnExport">Экспорт прогресса</button>
+    <label class="btn">Импорт прогресса<input type="file" id="importFile" accept=".json" class="hidden"></label>
+    <span class="small" id="deckInfo"></span>
+  </div>
+</div>
+
+<script src="core.js"></script>
+<script src="deck.js"></script>
+<script>
+;(function () {
+  'use strict'
+  var C = window.TrainerCore
+  var KEY = 'phrase-trainer.v1'
+  var deck = (window.DECK && window.DECK.cards) || []
+  var $ = function (id) { return document.getElementById(id) }
+
+  // ---------- Состояние (localStorage) ----------
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(KEY) || 'null')
+      if (s && s.cards && s.days) return s
+    } catch (e) {}
+    return { cards: {}, days: {}, newLimit: 15 }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)) } catch (e) { alert('Не удалось сохранить прогресс в браузере') }
+  }
+  var state = load()
+  $('newLimit').value = String(state.newLimit || 15)
+
+  function day() { return C.today() }
+  function dayStat() {
+    var d = day()
+    if (!state.days[d]) state.days[d] = { minutes: 0, reviews: 0, newSeen: 0 }
+    return state.days[d]
+  }
+
+  // ---------- Статистика ----------
+  function refreshStats() {
+    var d = day()
+    var due = 0, fresh = 0, learned = 0
+    deck.forEach(function (c) {
+      var p = state.cards[c.id]
+      if (!p || p.seen === 0) fresh++
+      else if (p.due <= d) due++
+      if (p && p.box >= 3) learned++
+    })
+    var st = dayStat()
+    var newLeft = Math.min(fresh, Math.max(0, (state.newLimit || 15) - (st.newSeen || 0)))
+    $('sToday').textContent = st.reviews
+    $('sMin').textContent = Math.round(st.minutes)
+    $('sDue').textContent = due
+    $('sNew').textContent = newLeft
+    $('sLearned').textContent = learned
+    $('sTotal').textContent = deck.length
+    return { due: due, newLeft: newLeft }
+  }
+
+  // ---------- Сессия ----------
+  var queue = [], pos = 0, current = null, mode = '', answered = false, retried = {}
+  var sessionStats = { right: 0, wrong: 0 }
+  var timer = null
+
+  function showOnly(id) {
+    ['noDeck', 'start', 'card', 'done'].forEach(function (x) { $(x).classList.toggle('hidden', x !== id) })
+  }
+
+  function showStart() {
+    var s = refreshStats()
+    var total = s.due + s.newLeft
+    $('startTitle').textContent = total ? 'На сегодня: ' + total + ' карточек' : 'На сегодня всё повторено 👍'
+    $('startNote').textContent = total
+      ? 'К повторению ' + s.due + ', новых ' + s.newLeft + '. 15-20 минут, говори фразы вслух.'
+      : 'Можно увеличить лимит новых карточек или вернуться завтра.'
+    $('btnStart').disabled = !total
+    showOnly('start')
+  }
+
+  function startSession() {
+    state.newLimit = Number($('newLimit').value) || 15
+    save()
+    queue = C.buildQueue(deck, state.cards, day(), state.newLimit, dayStat().newSeen || 0)
+    pos = 0
+    retried = {}
+    sessionStats = { right: 0, wrong: 0 }
+    if (!queue.length) return showStart()
+    // Время считаем, только пока вкладка видима.
+    clearInterval(timer)
+    timer = setInterval(function () {
+      if (document.visibilityState === 'visible') { dayStat().minutes += 0.25; save(); refreshStats() }
+    }, 15000)
+    showCard()
+  }
+
+  function finishSession() {
+    clearInterval(timer)
+    var total = sessionStats.right + sessionStats.wrong
+    $('doneTitle').textContent = 'Сессия завершена: ' + total + ' карточек'
+    $('doneNote').textContent = 'Верно ' + sessionStats.right + ', ошибок ' + sessionStats.wrong + '. Ошибки вернутся завтра. Раз в 1-2 дня экспортируй прогресс и загружай его учителю.'
+    refreshStats()
+    showOnly('done')
+  }
+
+  function el(tag, text, cls) {
+    var e = document.createElement(tag)
+    if (text != null) e.textContent = text
+    if (cls) e.className = cls
+    return e
+  }
+
+  function showCard() {
+    if (pos >= queue.length) return finishSession()
+    current = queue[pos]
+    var p = state.cards[current.id]
+    mode = C.chooseMode(current, p ? p.box : 0)
+    answered = false
+    $('progressBar').style.width = Math.round((pos / queue.length) * 100) + '%'
+    $('cardInfo').textContent = (pos + 1) + ' / ' + queue.length + ' · ' + (current.topic || '') + (p ? ' · коробка ' + p.box : ' · новая')
+    $('feedback').classList.add('hidden')
+    ;['choice', 'typeBox', 'recallBox'].forEach(function (x) { $(x).classList.add('hidden') })
+
+    var hasCloze = current.cloze && current.cloze !== '_____'
+    if (mode === 'recall') {
+      $('mode').textContent = 'вспомни по смыслу'
+      $('prompt').textContent = current.ru
+      $('ru').textContent = hasCloze ? 'контекст: ' + current.cloze : ''
+      $('recallBox').classList.remove('hidden')
+    } else {
+      $('mode').textContent = mode === 'choice' ? 'выбери правильную форму' : 'впиши фразу'
+      $('prompt').textContent = hasCloze ? current.cloze : '_____'
+      $('ru').textContent = current.ru
+      if (mode === 'choice') {
+        var box = $('choice')
+        box.innerHTML = ''
+        C.shuffle([current.en].concat(current.distractors.slice(0, 3))).forEach(function (opt, i) {
+          var b = el('button', (i + 1) + '. ' + opt)
+          b.dataset.value = opt
+          b.onclick = function () { onChoice(b) }
+          box.appendChild(b)
+        })
+        box.classList.remove('hidden')
+      } else {
+        $('typeInput').value = ''
+        $('typeBox').classList.remove('hidden')
+        setTimeout(function () { $('typeInput').focus() }, 30)
+      }
+    }
+  }
+
+  function showFeedback(verdict, ok, needsGrade) {
+    answered = true
+    $('verdict').innerHTML = ''
+    $('verdict').appendChild(el('span', verdict, ok === null ? '' : ok ? 'good' : 'bad'))
+    $('answer').textContent = current.en
+    $('ctx').textContent = current.context || ''
+    $('gradeRow').classList.toggle('hidden', !needsGrade)
+    $('btnNext').classList.toggle('hidden', needsGrade)
+    $('feedback').classList.remove('hidden')
+  }
+
+  function onChoice(btn) {
+    if (answered) return
+    var ok = btn.dataset.value === current.en
+    Array.prototype.forEach.call($('choice').children, function (b) {
+      b.disabled = true
+      if (b.dataset.value === current.en) b.classList.add('right')
+    })
+    if (!ok) btn.classList.add('wrong')
+    grade(ok ? 'right' : 'wrong')
+    showFeedback(ok ? 'Верно' : 'Неверно — правильно:', ok, false)
+  }
+
+  function onCheck() {
+    if (answered) return
+    var r = C.checkAnswer($('typeInput').value, current.en)
+    grade(r === 'wrong' ? 'wrong' : 'right')
+    showFeedback(r === 'exact' ? 'Верно' : r === 'typo' ? 'Почти — опечатка, засчитано:' : 'Неверно — правильно:', r !== 'wrong', false)
+  }
+
+  function grade(g) {
+    var d = day()
+    var before = state.cards[current.id]
+    var st = dayStat()
+    if (!before || before.seen === 0) st.newSeen = (st.newSeen || 0) + 1
+    state.cards[current.id] = C.nextState(before, g, d)
+    st.reviews += 1
+    if (g === 'wrong') {
+      sessionStats.wrong++
+      // Ошибка — ещё раз в конце этой же сессии (один раз).
+      if (!retried[current.id]) { retried[current.id] = true; queue.push(current) }
+    } else sessionStats.right++
+    save()
+    refreshStats()
+  }
+
+  function next() {
+    if (!answered) return
+    pos++
+    showCard()
+  }
+
+  function speak(text) {
+    if (!('speechSynthesis' in window)) return
+    speechSynthesis.cancel()
+    var u = new SpeechSynthesisUtterance(text)
+    var v = speechSynthesis.getVoices().filter(function (x) { return /^en/i.test(x.lang) })
+    if (v.length) u.voice = v.find(function (x) { return /en-GB/i.test(x.lang) }) || v[0]
+    u.lang = (u.voice && u.voice.lang) || 'en-GB'
+    u.rate = 0.9
+    speechSynthesis.speak(u)
+  }
+
+  // ---------- Экспорт / импорт ----------
+  function exportProgress() {
+    var cards = {}
+    Object.keys(state.cards).forEach(function (id) {
+      var p = state.cards[id]
+      cards[id] = { box: p.box, due: p.due, seen: p.seen, correct: p.correct, wrong: p.wrong, last: p.last }
+    })
+    var days = {}
+    Object.keys(state.days).forEach(function (d) { days[d] = { minutes: Math.round(state.days[d].minutes * 10) / 10, reviews: state.days[d].reviews } })
+    var data = { version: 1, exportedAt: new Date().toISOString(), cards: cards, days: days }
+    var a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }))
+    a.download = 'progress-' + day() + '.json'
+    a.click()
+    setTimeout(function () { URL.revokeObjectURL(a.href) }, 1000)
+  }
+
+  function importProgress(file) {
+    file.text().then(function (txt) {
+      var data = JSON.parse(txt)
+      if (!data || data.version !== 1 || !data.cards) throw new Error('bad')
+      if (!confirm('Заменить прогресс в этом браузере данными из файла?')) return
+      state.cards = data.cards
+      state.days = {}
+      Object.keys(data.days || {}).forEach(function (d) { state.days[d] = { minutes: data.days[d].minutes, reviews: data.days[d].reviews, newSeen: 0 } })
+      save()
+      showStart()
+    }).catch(function () { alert('Это не файл прогресса тренажёра') })
+  }
+
+  // ---------- События ----------
+  $('btnStart').onclick = startSession
+  $('btnCheck').onclick = onCheck
+  $('btnReveal').onclick = function () { showFeedback('Ответ:', null, true) }
+  $('gWrong').onclick = function () { grade('wrong'); answered = true; next() }
+  $('gHard').onclick = function () { grade('hard'); answered = true; next() }
+  $('gRight').onclick = function () { grade('right'); answered = true; next() }
+  $('btnNext').onclick = next
+  $('btnSpeak').onclick = function () { speak(current.context || current.en) }
+  $('btnExport').onclick = exportProgress
+  $('btnExport2').onclick = exportProgress
+  $('importFile').onchange = function (e) { if (e.target.files[0]) importProgress(e.target.files[0]); e.target.value = '' }
+  $('typeInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); answered ? next() : onCheck() } })
+  document.addEventListener('keydown', function (e) {
+    if ($('card').classList.contains('hidden') || e.target === $('typeInput')) return
+    if (e.key === 'Enter' && answered && !$('btnNext').classList.contains('hidden')) next()
+    if (mode === 'choice' && !answered && /^[1-4]$/.test(e.key)) {
+      var b = $('choice').children[Number(e.key) - 1]
+      if (b) onChoice(b)
+    }
+  })
+
+  // ---------- Старт ----------
+  if (!deck.length) showOnly('noDeck')
+  else showStart()
+  $('deckInfo').textContent = window.DECK ? 'колода от ' + String(window.DECK.builtAt || '').slice(0, 10) : ''
+
+  // Офлайн-режим: service worker только по http(s), с диска (file://) не нужен.
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('sw.js').catch(function () {})
+  }
+})()
+</script>
+</body>
+</html>
