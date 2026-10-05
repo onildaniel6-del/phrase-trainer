@@ -1,6 +1,6 @@
 window.DECK = {
  "version": 1,
- "builtAt": "2026-10-05T17:19:04.449Z",
+ "builtAt": "2026-10-05T18:16:35.419Z",
  "cards": [
   {
    "id": "seed001",
@@ -1104,6 +1104,390 @@ window.DECK = {
    "distractors": [],
    "topic": "vocabulary",
    "createdAt": "2026-10-05T17:19:04.092Z",
+   "audited": true
+  },
+  {
+   "kind": "phrase",
+   "en": "Thank you for inviting me",
+   "ru": "Спасибо, что пригласили меня",
+   "context": "Thank you for inviting me to this interview.",
+   "distractors": [
+    "Thank you for invite me",
+    "Thank you to invite me",
+    "Thank you for inviting to me"
+   ],
+   "topic": "intro",
+   "id": "cmuvkc12f0n7s",
+   "cloze": "_____ to this interview.",
+   "createdAt": "2026-10-05T18:08:05.222Z",
+   "audited": true
+  },
+  {
+   "kind": "phrase",
+   "en": "In commissioning, the key point is",
+   "ru": "В пусконаладке главное —",
+   "context": "In commissioning, the key point is to follow the checklists and keep the records.",
+   "distractors": [
+    "In commissioning, the key moment is",
+    "In commissioning, the key point it is",
+    "In commissioning, key point is"
+   ],
+   "topic": "technical",
+   "id": "cmuvkc12g1pus",
+   "cloze": "_____ to follow the checklists and keep the records.",
+   "createdAt": "2026-10-05T18:08:05.222Z",
+   "audited": true
+  },
+  {
+   "kind": "phrase",
+   "en": "we raised a permit to work",
+   "ru": "мы оформили наряд-допуск",
+   "context": "Before the download we raised a permit to work for each compressor.",
+   "distractors": [
+    "we opened a work permission",
+    "we raised a permission to work",
+    "we did a permit for work"
+   ],
+   "topic": "safety",
+   "id": "cmuvkc12g2f4a",
+   "cloze": "Before the download _____ for each compressor.",
+   "createdAt": "2026-10-05T18:08:05.222Z",
+   "audited": true
+  },
+  {
+   "kind": "phrase",
+   "en": "it took about 20 minutes to",
+   "ru": "это заняло около 20 минут, чтобы",
+   "context": "It took about 20 minutes to download the software to each unit.",
+   "distractors": [
+    "it took about 20 minutes for",
+    "it has took about 20 minutes to",
+    "it took about 20 minutes that"
+   ],
+   "topic": "technical",
+   "id": "cmuvkc12g36fo",
+   "cloze": "_____ download the software to each unit.",
+   "createdAt": "2026-10-05T18:08:05.222Z",
+   "audited": true
+  },
+  {
+   "kind": "word",
+   "en": "specifics",
+   "ru": "специфика, особенности",
+   "context": "I know the specifics of commissioning on LNG plants.",
+   "distractors": [],
+   "topic": "vocabulary",
+   "id": "cmuvkc12g40fh",
+   "cloze": "I know the _____ of commissioning on LNG plants.",
+   "createdAt": "2026-10-05T18:08:05.222Z",
+   "audited": true
+  },
+  {
+   "kind": "word",
+   "en": "mismatch",
+   "ru": "несоответствие",
+   "context": "We found a mismatch between the documentation and the software.",
+   "distractors": [],
+   "topic": "vocabulary",
+   "id": "cmuvkc12g536e",
+   "cloze": "We found a _____ between the documentation and the software.",
+   "createdAt": "2026-10-05T18:08:05.222Z",
+   "audited": true
+  },
+  {
+   "kind": "word",
+   "en": "trip setpoint",
+   "ru": "уставка срабатывания защиты",
+   "context": "We simulated the signal up to the trip setpoint and checked the alarm.",
+   "distractors": [],
+   "topic": "vocabulary",
+   "id": "cmuvkc12g7xqq",
+   "cloze": "We simulated the signal up to the _____ and checked the alarm.",
+   "createdAt": "2026-10-05T18:08:05.222Z",
+   "audited": true
+  },
+  {
+   "kind": "word",
+   "en": "high-high (HH) trip",
+   "ru": "останов по второму (аварийному) верхнему пределу, HIHI",
+   "context": "The high-high (HH) trip closes the inlet valve.",
+   "distractors": [],
+   "topic": "vocabulary",
+   "id": "cmuvkc12h89da",
+   "cloze": "The _____ closes the inlet valve.",
+   "createdAt": "2026-10-05T18:08:05.222Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n01",
+   "kind": "phrase",
+   "en": "I'm working as an ICSS engineer",
+   "ru": "я работаю инженером ICSS",
+   "context": "At the moment I'm working as an ICSS engineer at an LNG plant.",
+   "distractors": [
+    "I'm working as ICSS engineer",
+    "I'm working like an ICSS engineer",
+    "I'm working as a ICSS engineer"
+   ],
+   "topic": "intro",
+   "cloze": "At the moment _____ at an LNG plant.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n02",
+   "kind": "phrase",
+   "en": "at an LNG plant",
+   "ru": "на СПГ-заводе",
+   "context": "I'm based at an LNG plant on a rotation basis.",
+   "distractors": [
+    "in LNG plant",
+    "at a LNG plant",
+    "on LNG plant"
+   ],
+   "topic": "intro",
+   "cloze": "I'm based _____ on a rotation basis.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n03",
+   "kind": "phrase",
+   "en": "we are commissioning the booster compressors",
+   "ru": "мы ведём пусконаладку дожимных компрессоров",
+   "context": "Right now we are commissioning the booster compressors.",
+   "distractors": [
+    "we are doing commissioning for booster compressors",
+    "we commissioning the booster compressors",
+    "we are commission the booster compressors"
+   ],
+   "topic": "technical",
+   "cloze": "Right now _____.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n04",
+   "kind": "phrase",
+   "en": "we downloaded the software to all units",
+   "ru": "мы загрузили ПО на все установки",
+   "context": "After the change we downloaded the software to all units.",
+   "distractors": [
+    "we download the software to all units yesterday",
+    "we downloaded the software on all unit",
+    "we did download of the software to all units"
+   ],
+   "topic": "technical",
+   "cloze": "After the change _____.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n05",
+   "kind": "phrase",
+   "en": "as a top priority",
+   "ru": "в первую очередь, как высший приоритет",
+   "context": "We fixed the mismatch on all units as a top priority.",
+   "distractors": [
+    "for the first priority",
+    "as first priority",
+    "in the top priority"
+   ],
+   "topic": "technical",
+   "cloze": "We fixed the mismatch on all units _____.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n06",
+   "kind": "phrase",
+   "en": "asked the operations team to stop",
+   "ru": "попросили эксплуатацию остановить",
+   "context": "We asked the operations team to stop each compressor for twenty minutes.",
+   "distractors": [
+    "requested to operations team to stop",
+    "asked to the operations team to stop",
+    "asked the operations team stop"
+   ],
+   "topic": "safety",
+   "cloze": "We _____ each compressor for twenty minutes.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n07",
+   "kind": "phrase",
+   "en": "a five-point check",
+   "ru": "проверка по пяти точкам",
+   "context": "We did a five-point check at 4, 8, 12, 16 and 20 mA.",
+   "distractors": [
+    "a five-points check",
+    "a check of five point",
+    "a five-pointed check"
+   ],
+   "topic": "technical",
+   "cloze": "We did _____ at 4, 8, 12, 16 and 20 mA.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n08",
+   "kind": "phrase",
+   "en": "wire break and over-range alarms",
+   "ru": "сигнализация обрыва линии и выхода за диапазон",
+   "context": "We also tested the wire break and over-range alarms.",
+   "distractors": [
+    "wire breaking and overrange alarms",
+    "break of wire and over-range alarms",
+    "wire break and out-range alarms"
+   ],
+   "topic": "technical",
+   "cloze": "We also tested the _____.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n09",
+   "kind": "phrase",
+   "en": "describe the cause and effect matrix",
+   "ru": "описать матрицу причин и следствий",
+   "context": "Let me describe the cause and effect matrix first.",
+   "distractors": [
+    "describe about the cause and effect matrix",
+    "explain about the cause and effect matrix",
+    "describe of the cause and effect matrix"
+   ],
+   "topic": "technical",
+   "cloze": "Let me _____ first.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n10",
+   "kind": "phrase",
+   "en": "two-out-of-three voting",
+   "ru": "голосование «2 из 3» (2oo3)",
+   "context": "The trip uses two-out-of-three voting on the pressure transmitters.",
+   "distractors": [
+    "two-from-three voting",
+    "two of three votings",
+    "voting two-out-of-three of"
+   ],
+   "topic": "technical",
+   "cloze": "The trip uses _____ on the pressure transmitters.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n11",
+   "kind": "phrase",
+   "en": "the final elements",
+   "ru": "исполнительные элементы (клапаны, насосы)",
+   "context": "We checked that the final elements went to the safe position.",
+   "distractors": [
+    "the final mechanisms",
+    "the executive elements",
+    "the last elements"
+   ],
+   "topic": "technical",
+   "cloze": "We checked that _____ went to the safe position.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n12",
+   "kind": "phrase",
+   "en": "went to the safe position",
+   "ru": "перешли в безопасное положение",
+   "context": "All shutdown valves went to the safe position within the required time.",
+   "distractors": [
+    "went in the safe position",
+    "went to safety position",
+    "moved in the safety position"
+   ],
+   "topic": "technical",
+   "cloze": "All shutdown valves _____ within the required time.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n13",
+   "kind": "phrase",
+   "en": "The main point is that",
+   "ru": "Главное, что",
+   "context": "The main point is that the compressors were already in operation.",
+   "distractors": [
+    "Main point is that",
+    "The main point it is that",
+    "The main moment is that"
+   ],
+   "topic": "behavioural",
+   "cloze": "_____ the compressors were already in operation.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n14",
+   "kind": "phrase",
+   "en": "were already in operation",
+   "ru": "уже были в работе (в эксплуатации)",
+   "context": "The compressors were already in operation, so every test needed a permit.",
+   "distractors": [
+    "were already in exploitation",
+    "were already in operating",
+    "already were in the operation"
+   ],
+   "topic": "technical",
+   "cloze": "The compressors _____, so every test needed a permit.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n15",
+   "kind": "phrase",
+   "en": "My role was to",
+   "ru": "Моя роль заключалась в том, чтобы",
+   "context": "My role was to coordinate the vendor and the operations team.",
+   "distractors": [
+    "My role was coordinate",
+    "My role it was to",
+    "My role was in to"
+   ],
+   "topic": "behavioural",
+   "cloze": "_____ coordinate the vendor and the operations team.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n16",
+   "kind": "phrase",
+   "en": "approved through the MOC process",
+   "ru": "согласовано по процедуре управления изменениями (MOC)",
+   "context": "Every change to the C&E matrix was approved through the MOC process.",
+   "distractors": [
+    "approved by the MOC process of",
+    "approved via MOC processes",
+    "approved through MOC process’s"
+   ],
+   "topic": "technical",
+   "cloze": "Every change to the C&E matrix was _____.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
+   "audited": true
+  },
+  {
+   "id": "t20261005n17",
+   "kind": "phrase",
+   "en": "we repeated the functional test",
+   "ru": "мы повторили функциональный тест",
+   "context": "After the change we repeated the functional test and updated the matrix.",
+   "distractors": [
+    "we made again the functional test",
+    "we did repeat functional test",
+    "we repeated functional test"
+   ],
+   "topic": "technical",
+   "cloze": "After the change _____ and updated the matrix.",
+   "createdAt": "2026-10-05T18:15:34.565Z",
    "audited": true
   }
  ]

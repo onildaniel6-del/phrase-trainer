@@ -106,7 +106,10 @@
   <div id="done" class="panel hidden">
     <p class="prompt" id="doneTitle"></p>
     <p class="muted" id="doneNote"></p>
-    <div class="row" style="margin-top:14px"><button class="primary" id="btnExport2">Экспорт прогресса для учителя</button></div>
+    <div class="row" style="margin-top:14px">
+      <button id="btnHome">На старт</button>
+      <button class="primary" id="btnExport2">Экспорт прогресса для учителя</button>
+    </div>
   </div>
 
   <div class="tools">
@@ -222,6 +225,7 @@
 
   function showCard() {
     if (pos >= queue.length) return finishSession()
+    showOnly('card')
     current = queue[pos]
     var p = state.cards[current.id]
     mode = C.chooseMode(current, p ? p.box : 0)
@@ -363,6 +367,7 @@
   $('btnSpeak').onclick = function () { speak(current.context || current.en) }
   $('btnExport').onclick = exportProgress
   $('btnExport2').onclick = exportProgress
+  $('btnHome').onclick = showStart
   $('importFile').onchange = function (e) { if (e.target.files[0]) importProgress(e.target.files[0]); e.target.value = '' }
   $('typeInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); answered ? next() : onCheck() } })
   document.addEventListener('keydown', function (e) {
