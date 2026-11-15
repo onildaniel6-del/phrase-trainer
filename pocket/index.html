@@ -51,10 +51,10 @@
   .bar > div { height:100%; background:var(--blue); width:0; transition:width .4s; }
   .top { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin:0 0 8px; }
   .clock { font:14px ui-monospace,Consolas,monospace; color:var(--muted); }
-  .counts { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:14px 0; }
-  .counts div { background:#0b1220; border:1px solid var(--line); border-radius:12px; padding:10px; }
-  .counts b { display:block; font-size:22px; }
-  .counts span { font-size:12px; color:var(--muted); }
+  button.section { display:flex; flex-direction:column; gap:2px; background:#0b1220; }
+  button.section b { font-size:18px; }
+  button.section span { font-size:13px; color:var(--muted); }
+  label.btn { flex:1; text-align:center; font:inherit; background:#1f2937; border:1px solid #374151; border-radius:12px; padding:14px; cursor:pointer; min-height:48px; }
   .seg { display:flex; gap:6px; }
   .seg button { flex:1; text-align:center; padding:10px; min-height:44px; font-size:14px; }
   .seg button.on { border-color:var(--blue); color:#bfdbfe; background:#172554; }
@@ -86,23 +86,28 @@
   <div id="home" class="hidden">
     <div class="panel">
       <p class="prompt" id="homeTitle"></p>
-      <div class="counts">
-        <div><b id="cMis">0</b><span>свои ошибки</span></div>
-        <div><b id="cPhr">0</b><span>фразы</span></div>
-        <div><b id="cWrd">0</b><span>слова ПНР</span></div>
+      <div class="stack" style="margin-top:14px">
+        <button class="section" id="goMis"><b>🎯 Свои ошибки</b><span id="cMis"></span></button>
+        <button class="section" id="goPhr"><b>🃏 Фразы</b><span id="cPhr"></span></button>
+        <button class="section" id="goWrd"><b>📚 Слова ПНР</b><span id="cWrd"></span></button>
+        <button class="primary" id="goAll">Всё подряд: ошибки → фразы → слова</button>
+        <button id="goAudio">🎧 Аудио в наушниках</button>
       </div>
-      <div class="stack">
-        <button class="primary" id="go15">Подход 15 минут</button>
-        <button class="primary" id="go20">Подход 20 минут</button>
-        <button id="goAudio">🎧 Аудио в наушниках · 15 минут</button>
-      </div>
-      <p class="muted" style="margin-top:12px">Подход: свои ошибки → фразы → слова, каждый блок по времени. Можно прервать в любой момент - прогресс уже сохранён.</p>
+      <p class="muted" style="margin-top:12px">Без лимитов: открываются все карточки, которые пора повторить, и все новые. Занимайся сколько хочешь, выйти можно в любой момент - каждый ответ уже сохранён.</p>
     </div>
-    <div class="row" style="margin-top:14px;align-items:center">
+    <div class="panel" style="margin-top:14px">
+      <p class="mode">прогресс · телефон ⇄ ПК</p>
+      <p class="muted" id="syncInfo" style="margin:0 0 10px"></p>
+      <div class="row">
+        <button id="btnExport">⬇ Экспорт</button>
+        <label class="btn" for="importFile">⬆ Импорт</label>
+        <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;align-items:center">
       <span class="small" id="dataInfo" style="flex:1"></span>
     </div>
     <div class="row" style="margin-top:4px">
-      <button class="link" id="btnExport">Экспорт прогресса</button>
       <button class="link" id="btnForget">Забыть пароль на этом телефоне</button>
     </div>
   </div>
@@ -151,8 +156,8 @@
       <div class="row" id="extraRow" style="margin-top:4px"></div>
     </div>
     <div class="row" style="margin-top:8px">
-      <button class="link" id="btnSkipBlock">Следующий блок</button>
-      <button class="link" id="btnStop">Закончить подход</button>
+      <button class="link" id="btnSkipBlock">Следующий раздел</button>
+      <button class="link" id="btnStop">Закончить</button>
     </div>
   </div>
 
@@ -199,7 +204,7 @@
   'use strict'
   var C = window.TrainerCore, P = window.PocketCore
   // Ключи прогресса - те же, что у тренажёра фраз и глоссария: на одном сайте прогресс общий
-  var K = { phr: 'phrase-trainer.v1', wrd: 'glossary-progress-v1', mis: 'pocket-mistakes.v1', key: 'pocket-key.v1', audio: 'pocket-audio.v1' }
+  var K = { phr: 'phrase-trainer.v1', wrd: 'glossary-progress-v1', mis: 'pocket-mistakes.v1', key: 'pocket-key.v1', audio: 'pocket-audio.v1', merged: 'pocket-merged-build.v1' }
   var $ = function (id) { return document.getElementById(id) }
   var SCREENS = ['msg', 'lock', 'home', 'session', 'done', 'audio']
   function show(id) { SCREENS.forEach(function (x) { $(x).classList.toggle('hidden', x !== id) }); window.scrollTo(0, 0) }
@@ -282,7 +287,80 @@
 
   function init(json) {
     data = JSON.parse(json)
+    // ПК -> телефон: в каждой сборке едет база прогресса ПК; вливаем один раз на сборку
+    var note = ''
+    if (data.progress && load(K.merged, '') !== data.builtAt) {
+      var r = applyMerge(data.progress)
+      save(K.merged, data.builtAt)
+      if (r.phrases + r.glossary + r.mistakes) note = 'С ПК подтянуто: фраз ' + r.phrases + ', слов ' + r.glossary + ', ошибок ' + r.mistakes
+    }
+    setSyncInfo(note)
     showHome()
+    if (LOCAL) syncPc()
+  }
+
+  // ---------- Прогресс: телефон ⇄ ПК ----------
+  // На ПК (localhost) база - файлы private/ через /api/trainer/pocket-sync; на телефоне - файл «Экспорт» -> «Импорт» на ПК
+  var LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+  function bundle() {
+    return {
+      app: 'pocket', version: 1, exportedAt: new Date().toISOString(),
+      phrases: { cards: phr.cards, days: phr.days },
+      glossary: { cards: wrd.cards, days: wrd.days },
+      mistakes: { items: mis.items, days: mis.days || {} },
+    }
+  }
+  function setState(merged) {
+    phr.cards = merged.phrases.cards; phr.days = merged.phrases.days
+    wrd.cards = merged.glossary.cards; wrd.days = merged.glossary.days
+    mis = { items: merged.mistakes.items, days: merged.mistakes.days }
+    save(K.phr, phr); save(K.wrd, wrd); save(K.mis, mis)
+  }
+  // Слить чужой прогресс в свой; вернуть, сколько карточек изменилось
+  function applyMerge(other) {
+    var mine = bundle()
+    var merged = P.mergePocketProgress(mine, other)
+    var changed = P.countChanged(mine, merged)
+    setState(merged)
+    return changed
+  }
+  function setSyncInfo(note) {
+    var base = LOCAL
+      ? 'Это ПК: прогресс сохраняется в базу private/ автоматически. С телефона - «Импорт» его файла; на телефон - при публикации или «Экспорт» отсюда.'
+      : 'Прогресс с ПК приходит сам при каждом обновлении. Свой прогресс на ПК - «Экспорт», файл в «Импорт» «Подхода» на ПК.'
+    $('syncInfo').textContent = note ? note + '. ' + base : base
+  }
+  function syncPc() {
+    if (!LOCAL) return Promise.resolve()
+    return fetch('/api/trainer/pocket-sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bundle()) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status); return j }) })
+      .then(function (j) { setState(j.progress); refreshToday(); if (!S && !A && $('home').offsetParent) showHome() })
+      .catch(function (e) { $('syncInfo').textContent = 'База ПК не обновлена: ' + e.message })
+  }
+
+  $('btnExport').onclick = function () {
+    syncPc().then(function () {
+      var blob = new Blob([JSON.stringify(bundle())], { type: 'application/json' })
+      var a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = 'podhod-' + (LOCAL ? 'pc' : 'phone') + '-' + day() + '.json'
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove() }, 1000)
+    })
+  }
+  $('importFile').onchange = function () {
+    var f = this.files && this.files[0]
+    this.value = ''
+    if (!f) return
+    f.text().then(function (text) {
+      var other = JSON.parse(text)
+      if (!other || other.app !== 'pocket' || !other.phrases || !other.glossary || !other.mistakes) throw new Error('это не файл прогресса «Подхода»')
+      var r = applyMerge(other)
+      setSyncInfo('Импорт: обновлено фраз ' + r.phrases + ', слов ' + r.glossary + ', ошибок ' + r.mistakes)
+      showHome()
+      return syncPc()
+    }).catch(function (e) { alert('Импорт не удался: ' + (e && e.message ? e.message : e)) })
   }
 
   // ---------- Очереди ----------
@@ -293,23 +371,38 @@
     if (!f) return true
     return f.domains.indexOf(c.domain) >= 0 && f.types.indexOf(c.type) >= 0 && f.sources.indexOf(c.source) >= 0
   }
+  // Без лимитов (решение владельца 15.11): все, что пора повторить, и все новые
   function queues() {
     var d = day()
     return {
-      mistakes: P.mistakeQueue(data.mistakes, mis.items, d, 30),
-      phrases: C.buildQueue(data.phrases, phr.cards, d, phr.newLimit || 15, dayStat(phr).newSeen || 0),
-      words: C.buildQueue(data.words.filter(wordAllowed), wrd.cards, d, wrd.newLimit || 20, dayStat(wrd).newSeen || 0),
+      mistakes: P.mistakeQueue(data.mistakes, mis.items, d),
+      phrases: C.buildQueue(data.phrases, phr.cards, d, Infinity, 0),
+      words: C.buildQueue(data.words.filter(wordAllowed), wrd.cards, d, Infinity, 0),
     }
+  }
+  function split(list, st) {
+    var fresh = 0
+    list.forEach(function (c) { var p = st[c.id]; if (!p || !p.seen) fresh++ })
+    return { due: list.length - fresh, fresh: fresh }
+  }
+  function countLine(n) {
+    if (!n.due && !n.fresh) return 'всё повторено'
+    return (n.due ? 'повторить ' + n.due : '') + (n.due && n.fresh ? ' · ' : '') + (n.fresh ? 'новых ' + n.fresh : '')
   }
 
   function showHome() {
     var q = queues()
-    $('cMis').textContent = String(q.mistakes.length)
-    $('cPhr').textContent = String(q.phrases.length)
-    $('cWrd').textContent = String(q.words.length)
+    var nm = split(q.mistakes, mis.items), np = split(q.phrases, phr.cards), nw = split(q.words, wrd.cards)
+    $('cMis').textContent = countLine(nm)
+    $('cPhr').textContent = countLine(np)
+    $('cWrd').textContent = countLine(nw)
+    $('goMis').disabled = !q.mistakes.length
+    $('goPhr').disabled = !q.phrases.length
+    $('goWrd').disabled = !q.words.length
+    var due = nm.due + np.due + nw.due
     var total = q.mistakes.length + q.phrases.length + q.words.length
-    $('homeTitle').textContent = total ? 'На сегодня ' + total + ' карточек' : 'На сегодня всё повторено 👍'
-    $('go15').disabled = $('go20').disabled = !total
+    $('homeTitle').textContent = !total ? 'Всё повторено 👍' : due ? 'Пора повторить: ' + due : 'Повторять пока нечего - можно учить новое'
+    $('goAll').disabled = !total
     $('dataInfo').textContent = 'данные от ' + new Date(data.builtAt).toLocaleDateString('ru-RU') + ' · фраз ' + data.phrases.length + ' · слов ' + data.words.length + ' · ошибок ' + data.mistakes.length
     refreshToday()
     show('home')
@@ -321,17 +414,18 @@
     choice: 'выбери правильную форму', type: 'впиши в пропуск', recall: 'вспомни по-английски',
     recognize: 'узнай: что это значит?', listen: 'на слух: впиши пропущенное', fix: 'исправь выделенное',
   }
-  var S = null // текущий подход
-  var cur = null // текущая карточка: { kind, item, mode, answered, retried }
+  var S = null // текущее занятие
+  var cur = null // текущая карточка: { kind, item, mode, answered }
 
-  function startSession(minutes) {
+  // Занятие по одному разделу или «всё подряд»; без таймера и лимита - до конца очереди или «Закончить»
+  function startSession(kinds) {
     var q = queues()
-    var blocks = P.planBlocks(minutes, { mistakes: q.mistakes.length, phrases: q.phrases.length, words: q.words.length })
-    if (!blocks.length) return showHome()
-    S = { total: minutes * 60, elapsed: 0, blocks: blocks, bi: 0, queue: q[blocks[0].kind].slice(), pos: 0, blockElapsed: 0, retried: {},
-          stats: { mistakes: { right: 0, wrong: 0 }, phrases: { right: 0, wrong: 0 }, words: { right: 0, wrong: 0 } }, q: q }
-    clearInterval(S.timer)
+    kinds = kinds.filter(function (k) { return q[k].length })
+    if (!kinds.length) return showHome()
+    S = { kinds: kinds, ki: 0, q: q, queue: q[kinds[0]].slice(), pos: 0, elapsed: 0, retried: {},
+          stats: { mistakes: { right: 0, wrong: 0 }, phrases: { right: 0, wrong: 0 }, words: { right: 0, wrong: 0 } } }
     S.timer = setInterval(tick, 1000)
+    $('btnSkipBlock').classList.toggle('hidden', kinds.length < 2)
     acquireWakeLock()
     show('session')
     nextCard()
@@ -341,8 +435,7 @@
   function tick() {
     if (!S || document.visibilityState !== 'visible') return
     S.elapsed++
-    S.blockElapsed++
-    var kind = S.blocks[S.bi].kind
+    var kind = S.kinds[S.ki]
     if (S.elapsed % 15 === 0) {
       if (kind === 'phrases') { dayStat(phr).minutes += 0.25; save(K.phr, phr) }
       if (kind === 'words') { dayStat(wrd).minutes += 0.25; save(K.wrd, wrd) }
@@ -351,33 +444,27 @@
   }
 
   function renderClock() {
-    var b = S.blocks[S.bi]
-    var left = Math.max(0, b.seconds - S.blockElapsed)
-    $('clock').textContent = (left ? Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) : 'время блока вышло')
-    $('blockName').textContent = BLOCK_RU[b.kind] + ' · блок ' + (S.bi + 1) + ' из ' + S.blocks.length
-    $('bar').style.width = Math.min(100, Math.round((S.elapsed / S.total) * 100)) + '%'
+    var kind = S.kinds[S.ki]
+    $('clock').textContent = Math.floor(S.elapsed / 60) + ':' + ('0' + (S.elapsed % 60)).slice(-2)
+    $('blockName').textContent = BLOCK_RU[kind] + ' · ' + Math.min(S.pos + 1, S.queue.length) + ' / ' + S.queue.length
+    $('bar').style.width = Math.round((S.pos / Math.max(1, S.queue.length)) * 100) + '%'
   }
 
   function nextBlock() {
-    var b = S.blocks[S.bi]
-    // Блок кончился раньше времени - остаток переходит следующему
-    var spare = Math.max(0, b.seconds - S.blockElapsed)
-    S.bi++
-    if (S.bi >= S.blocks.length) return finishSession()
-    S.blocks[S.bi].seconds += spare
-    S.queue = S.q[S.blocks[S.bi].kind].slice()
+    S.ki++
+    if (S.ki >= S.kinds.length) return finishSession()
+    S.queue = S.q[S.kinds[S.ki]].slice()
     S.pos = 0
-    S.blockElapsed = 0
+    if (S.ki === S.kinds.length - 1) $('btnSkipBlock').classList.add('hidden')
     nextCard()
   }
 
   function nextCard() {
-    var b = S.blocks[S.bi]
-    if (S.pos >= S.queue.length || S.blockElapsed >= b.seconds) return nextBlock()
+    if (S.pos >= S.queue.length) return nextBlock()
     var item = S.queue[S.pos]
     renderClock()
-    if (b.kind === 'mistakes') showMistake(item)
-    else showCard(b.kind, item)
+    if (S.kinds[S.ki] === 'mistakes') showMistake(item)
+    else showCard(S.kinds[S.ki], item)
   }
 
   function resetCard() {
@@ -545,11 +632,11 @@
 
   // --- Общее ---
   function countResult(ok) {
-    var s = S.stats[S.blocks[S.bi].kind]
+    var s = S.stats[S.kinds[S.ki]]
     if (ok) s.right++
     else {
       s.wrong++
-      // Ошибся - карточка ещё раз в конце блока (один раз)
+      // Ошибся - карточка ещё раз в конце раздела (один раз)
       if (!S.retried[cur.item.id]) { S.retried[cur.item.id] = true; S.queue.push(cur.item) }
     }
   }
@@ -612,11 +699,13 @@
   $('gRight').onclick = function () { gradeCard('right'); advance() }
   $('btnNext').onclick = function () { if (cur && cur.answered) advance() }
   $('btnSpeak').onclick = function () { speak(cur.kind === 'mistakes' ? cur.item.fixed || cur.item.right : cur.item.en) }
-  $('btnSkipBlock').onclick = function () { if (S) { S.blockElapsed = S.blocks[S.bi].seconds; nextBlock() } }
+  $('btnSkipBlock').onclick = function () { if (S) nextBlock() }
   $('btnStop').onclick = function () { if (S) finishSession() }
   $('btnHome').onclick = showHome
-  $('go15').onclick = function () { startSession(15) }
-  $('go20').onclick = function () { startSession(20) }
+  $('goMis').onclick = function () { startSession(['mistakes']) }
+  $('goPhr').onclick = function () { startSession(['phrases']) }
+  $('goWrd').onclick = function () { startSession(['words']) }
+  $('goAll').onclick = function () { startSession(['mistakes', 'phrases', 'words']) }
 
   function finishSession() {
     clearInterval(S.timer)
@@ -631,11 +720,12 @@
       if (n) list.appendChild(el('p', BLOCK_RU[k] + ': ' + n + ' (верно ' + s.right + ', ошибок ' + s.wrong + ')'))
     })
     var min = Math.max(1, Math.round(S.elapsed / 60))
-    $('doneTitle').textContent = done ? 'Подход: ' + done + ' ответов за ' + min + ' мин' : 'Подход прерван'
+    $('doneTitle').textContent = done ? 'Готово: ' + done + ' ответов за ' + min + ' мин' : 'Занятие прервано'
     if (done) list.appendChild(el('p', 'Ошибки вернутся завтра. Сегодня всего: ' + todayCount() + '.'))
     S = null
     cur = null
     show('done')
+    syncPc()
   }
 
   // ---------- Озвучка ----------
@@ -695,16 +785,16 @@
 
   $('goAudio').onclick = function () {
     if (!('speechSynthesis' in window)) return alert('Браузер не умеет озвучивать текст')
-    var list = P.audioPlaylist(data.phrases, data.words.filter(wordAllowed), phr.cards, wrd.cards, day(), 150)
+    // Без лимита времени: играет, пока не нажмёшь «Стоп»
+    var list = P.audioPlaylist(data.phrases, data.words.filter(wordAllowed), phr.cards, wrd.cards, day())
     if (!list.length) return alert('Нечего слушать')
-    A = { list: list, i: 0, total: 15 * 60, elapsed: 0, paused: false, token: 0 }
+    A = { list: list, i: 0, elapsed: 0, paused: false, token: 0 }
+    $('aClock').textContent = '0:00'
     A.timer = setInterval(function () {
       if (!A || A.paused || document.visibilityState !== 'visible') return
       A.elapsed++
-      var left = Math.max(0, A.total - A.elapsed)
-      $('aClock').textContent = Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2)
-      $('aBar').style.width = Math.min(100, Math.round((A.elapsed / A.total) * 100)) + '%'
-      if (!left) stopAudio()
+      $('aClock').textContent = Math.floor(A.elapsed / 60) + ':' + ('0' + (A.elapsed % 60)).slice(-2)
+      $('aBar').style.width = Math.round(((A.i % A.list.length) / A.list.length) * 100) + '%'
     }, 1000)
     renderAudioSettings()
     $('aNote').textContent = voiceFor('ru') ? 'Экран не гаснет, пока идёт аудио. Касаться не нужно.' : 'Русского голоса в телефоне нет - перевод только на экране. Экран не гаснет.'
@@ -724,7 +814,7 @@
     var token = ++A.token
     var item = A.list[A.i % A.list.length]
     var enFirst = aSet.dir === 'en'
-    $('aInfo').textContent = (item.kind === 'phrase' ? 'фраза' : 'слово') + ' · ' + (A.i + 1) + (A.i >= A.list.length ? ' (по второму кругу)' : '')
+    $('aInfo').textContent = (item.kind === 'phrase' ? 'фраза' : 'слово') + ' · ' + ((A.i % A.list.length) + 1) + ' / ' + A.list.length + (A.i >= A.list.length ? ' (новый круг)' : '')
     $('aFirst').textContent = enFirst ? item.en : item.ru
     $('aSecond').textContent = ''
     var hasRu = !!voiceFor('ru')
@@ -760,17 +850,6 @@
     releaseWakeLock()
     showHome()
     if (heard) $('homeTitle').textContent = 'Прослушано: ' + heard + '. ' + $('homeTitle').textContent
-  }
-
-  // ---------- Экспорт ----------
-  $('btnExport').onclick = function () {
-    var blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), phrases: phr, glossary: wrd, mistakes: mis }, null, 1)], { type: 'application/json' })
-    var a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = 'pocket-progress-' + day() + '.json'
-    document.body.appendChild(a)
-    a.click()
-    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove() }, 1000)
   }
 
   // Офлайн: service worker только по http(s)
