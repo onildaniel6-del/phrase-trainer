@@ -1,9 +1,9 @@
 // Service worker «Подхода»: в метро без сети страница и данные открываются из кэша мгновенно.
 // Сначала кэш, обновление в фоне: новая сборка данных (pocket:publish) видна со следующего открытия.
-const CACHE = 'pocket-v1'
+const CACHE = 'pocket-v2'
 // './' не предзагружаем: локальный Next отдаёт на папку 404, и установка падала целиком. Открытие по адресу папки
 // (github.io) кэшируется при первом заходе.
-const FILES = ['index.html', 'trainer-core.js', 'pocket-core.js', 'data.js', 'manifest.webmanifest', 'icon.svg']
+const FILES = ['index.html', 'trainer-core.js', 'pocket-core.js', 'data.js', 'manifest.webmanifest', 'icon.svg', 'pdf.min.mjs', 'pdf.worker.min.mjs']
 
 // Каждый файл - отдельно: с addAll один сбой (рваная сеть, dev-сервер ещё компилирует) валил всю установку.
 // Не закэшированное здесь докэшируется при первом обращении (fetch ниже).
