@@ -1,0 +1,10 @@
+{
+  "name": "Подход - английский за 15 минут",
+  "short_name": "Подход",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#030712",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

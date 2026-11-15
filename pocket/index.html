@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#030712">
+<meta name="robots" content="noindex">
+<title>Подход</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root { --bg:#030712; --panel:#111827; --line:#1f2937; --text:#f3f4f6; --muted:#9ca3af; --dim:#6b7280;
+          --blue:#2563eb; --amber:#fbbf24; --ok:#34d399; --bad:#f87171; --mark:#fca5a5; }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .wrap { max-width:560px; margin:0 auto; padding:16px 16px calc(24px + env(safe-area-inset-bottom)); }
+  header { display:flex; gap:12px; align-items:baseline; margin-bottom:14px; }
+  header h1 { font-size:18px; margin:0; margin-right:auto; }
+  .menu { font:13px ui-monospace,Consolas,monospace; color:#94a3b8; text-decoration:none; }
+  .stat { font:12px ui-monospace,Consolas,monospace; color:var(--muted); }
+  .stat b { color:var(--text); }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .mode { font:11px ui-monospace,Consolas,monospace; text-transform:uppercase; color:var(--dim); margin-bottom:10px; letter-spacing:.3px; }
+  .prompt { font-size:20px; line-height:1.4; margin:0 0 8px; overflow-wrap:anywhere; }
+  .prompt.big { font-size:26px; font-weight:600; }
+  .masked { letter-spacing:2px; color:var(--dim); }
+  .sub { color:var(--muted); font-size:15px; margin:0 0 14px; }
+  mark { background:none; color:var(--mark); text-decoration:underline; text-decoration-color:var(--bad); text-decoration-thickness:2px; text-underline-offset:4px; }
+  .opts { display:grid; gap:8px; }
+  button { font:inherit; color:var(--text); background:#1f2937; border:1px solid #374151; border-radius:12px; padding:14px; cursor:pointer; text-align:left; min-height:48px; -webkit-tap-highlight-color:transparent; }
+  button:active { background:#273449; }
+  button.primary { background:var(--blue); border-color:var(--blue); text-align:center; font-weight:600; }
+  button.right { border-color:var(--ok); color:var(--ok); }
+  button.wrong { border-color:var(--bad); color:var(--bad); }
+  button.link { background:none; border:none; color:var(--dim); font-size:13px; padding:10px 4px; min-height:0; text-decoration:underline; }
+  button:disabled { opacity:.45; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .row > button { flex:1; text-align:center; }
+  .stack { display:grid; gap:10px; }
+  input[type=text], input[type=password] { width:100%; font:inherit; font-size:18px; color:var(--text); background:#0b1220; border:1px solid #374151; border-radius:12px; padding:13px; }
+  input:focus { outline:none; border-color:var(--blue); }
+  .feedback { margin-top:14px; padding:14px; border-radius:12px; background:#0b1220; }
+  .feedback .answer { color:var(--amber); font-weight:600; font-size:18px; overflow-wrap:anywhere; }
+  .feedback .ctx { color:var(--muted); font-style:italic; margin-top:6px; overflow-wrap:anywhere; }
+  .good { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--amber); }
+  .muted { color:var(--muted); font-size:14px; }
+  .small { font:12px ui-monospace,Consolas,monospace; color:var(--dim); }
+  .hidden { display:none !important; }
+  .bar { height:5px; background:var(--line); border-radius:4px; overflow:hidden; }
+  .bar > div { height:100%; background:var(--blue); width:0; transition:width .4s; }
+  .top { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin:0 0 8px; }
+  .clock { font:14px ui-monospace,Consolas,monospace; color:var(--muted); }
+  .counts { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:14px 0; }
+  .counts div { background:#0b1220; border:1px solid var(--line); border-radius:12px; padding:10px; }
+  .counts b { display:block; font-size:22px; }
+  .counts span { font-size:12px; color:var(--muted); }
+  .seg { display:flex; gap:6px; }
+  .seg button { flex:1; text-align:center; padding:10px; min-height:44px; font-size:14px; }
+  .seg button.on { border-color:var(--blue); color:#bfdbfe; background:#172554; }
+  .audio-en { font-size:24px; font-weight:600; margin:6px 0; overflow-wrap:anywhere; }
+  .audio-ru { font-size:18px; color:var(--muted); min-height:1.5em; overflow-wrap:anywhere; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <!-- В меню платформы: только на локальной платформе (на github.io /hub нет) -->
+    <a id="toMenu" class="menu" href="/hub" hidden>← Меню</a>
+    <h1>Подход</h1>
+    <span class="stat">сегодня <b id="sToday">0</b></span>
+  </header>
+
+  <div id="msg" class="panel hidden"><p id="msgText"></p></div>
+
+  <!-- Пароль -->
+  <form id="lock" class="panel hidden" autocomplete="off">
+    <p class="prompt">Введи пароль</p>
+    <p class="muted">Данные зашифрованы. Пароль нужен один раз на этом телефоне, дальше открывается сразу.</p>
+    <input type="password" id="pass" autocomplete="current-password" placeholder="пароль">
+    <div class="row" style="margin-top:12px"><button class="primary" id="btnUnlock" type="submit">Открыть</button></div>
+    <p class="small" id="lockInfo" style="margin-top:10px"></p>
+  </form>
+
+  <!-- Главный -->
+  <div id="home" class="hidden">
+    <div class="panel">
+      <p class="prompt" id="homeTitle"></p>
+      <div class="counts">
+        <div><b id="cMis">0</b><span>свои ошибки</span></div>
+        <div><b id="cPhr">0</b><span>фразы</span></div>
+        <div><b id="cWrd">0</b><span>слова ПНР</span></div>
+      </div>
+      <div class="stack">
+        <button class="primary" id="go15">Подход 15 минут</button>
+        <button class="primary" id="go20">Подход 20 минут</button>
+        <button id="goAudio">🎧 Аудио в наушниках · 15 минут</button>
+      </div>
+      <p class="muted" style="margin-top:12px">Подход: свои ошибки → фразы → слова, каждый блок по времени. Можно прервать в любой момент - прогресс уже сохранён.</p>
+    </div>
+    <div class="row" style="margin-top:14px;align-items:center">
+      <span class="small" id="dataInfo" style="flex:1"></span>
+    </div>
+    <div class="row" style="margin-top:4px">
+      <button class="link" id="btnExport">Экспорт прогресса</button>
+      <button class="link" id="btnForget">Забыть пароль на этом телефоне</button>
+    </div>
+  </div>
+
+  <!-- Подход -->
+  <div id="session" class="hidden">
+    <div class="top"><span class="mode" id="blockName" style="margin:0"></span><span class="clock" id="clock"></span></div>
+    <div class="bar" style="margin-bottom:14px"><div id="bar"></div></div>
+    <div class="panel">
+      <div class="mode" id="mode"></div>
+      <p class="prompt" id="prompt"></p>
+      <p class="sub" id="sub"></p>
+
+      <div class="row hidden" id="listenRow" style="margin-bottom:10px"><button id="btnListen">🔊 Послушать ещё раз</button></div>
+
+      <div id="choice" class="opts hidden"></div>
+
+      <div id="typeBox" class="hidden">
+        <input type="text" id="typeInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+        <p class="small warn hidden" id="hintLine" style="margin:8px 0 0"></p>
+        <div class="row" style="margin-top:10px">
+          <button id="btnDontKnow">Не знаю</button>
+          <button id="btnHint" class="hidden">Подсказка</button>
+          <button class="primary" id="btnCheck">Проверить</button>
+        </div>
+      </div>
+
+      <div id="revealBox" class="hidden">
+        <div class="row"><button class="primary" id="btnReveal">Показать ответ</button></div>
+      </div>
+
+      <div id="feedback" class="feedback hidden">
+        <div id="verdict"></div>
+        <div class="answer" id="answer"></div>
+        <div class="muted" id="answerRu"></div>
+        <div class="ctx" id="ctx"></div>
+        <div class="row" style="margin-top:12px" id="gradeRow">
+          <button id="gWrong">Не вспомнил</button><button id="gHard">С трудом</button><button id="gRight">Легко</button>
+        </div>
+        <div class="row" style="margin-top:12px" id="nextRow">
+          <button id="btnSpeak">🔊</button>
+          <button class="primary" id="btnNext" style="flex:3">Дальше</button>
+        </div>
+      </div>
+      <!-- «Уже знаю / Не нужно» (слова) и «Это не ошибка» (свои ошибки) -->
+      <div class="row" id="extraRow" style="margin-top:4px"></div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="link" id="btnSkipBlock">Следующий блок</button>
+      <button class="link" id="btnStop">Закончить подход</button>
+    </div>
+  </div>
+
+  <!-- Итог -->
+  <div id="done" class="panel hidden">
+    <p class="prompt" id="doneTitle"></p>
+    <div id="doneList" class="muted"></div>
+    <div class="row" style="margin-top:14px"><button class="primary" id="btnHome">На главный</button></div>
+  </div>
+
+  <!-- Аудио -->
+  <div id="audio" class="hidden">
+    <div class="top"><span class="mode" style="margin:0">аудио · без рук</span><span class="clock" id="aClock"></span></div>
+    <div class="bar" style="margin-bottom:14px"><div id="aBar"></div></div>
+    <div class="panel">
+      <div class="seg" id="aDir">
+        <button data-dir="en">англ → рус<br><span class="small">понимать</span></button>
+        <button data-dir="ru">рус → англ<br><span class="small">вспоминать</span></button>
+      </div>
+      <div class="seg" id="aGap" style="margin-top:8px">
+        <button data-gap="2">пауза 2 с</button><button data-gap="4">4 с</button><button data-gap="6">6 с</button>
+      </div>
+      <div style="margin:18px 0 6px;min-height:120px">
+        <div class="small" id="aInfo"></div>
+        <div class="audio-en" id="aFirst"></div>
+        <div class="audio-ru" id="aSecond"></div>
+      </div>
+      <div class="row">
+        <button id="aPause">⏸ Пауза</button>
+        <button id="aNext">⏭ Дальше</button>
+        <button id="aStop">⏹ Стоп</button>
+      </div>
+      <p class="small" id="aNote" style="margin-top:12px"></p>
+    </div>
+  </div>
+</div>
+
+<script>if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) document.getElementById('toMenu').hidden = false</script>
+<script src="trainer-core.js"></script>
+<script src="pocket-core.js"></script>
+<script src="data.js"></script>
+<script>
+;(function () {
+  'use strict'
+  var C = window.TrainerCore, P = window.PocketCore
+  // Ключи прогресса - те же, что у тренажёра фраз и глоссария: на одном сайте прогресс общий
+  var K = { phr: 'phrase-trainer.v1', wrd: 'glossary-progress-v1', mis: 'pocket-mistakes.v1', key: 'pocket-key.v1', audio: 'pocket-audio.v1' }
+  var $ = function (id) { return document.getElementById(id) }
+  var SCREENS = ['msg', 'lock', 'home', 'session', 'done', 'audio']
+  function show(id) { SCREENS.forEach(function (x) { $(x).classList.toggle('hidden', x !== id) }); window.scrollTo(0, 0) }
+  function message(text) { $('msgText').textContent = text; show('msg') }
+  function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e }
+
+  function load(key, fallback) {
+    try { var v = JSON.parse(localStorage.getItem(key) || 'null'); if (v) return v } catch (e) {}
+    return fallback
+  }
+  var saveWarned = false
+  function save(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)) } catch (e) { if (!saveWarned) { saveWarned = true; alert('Прогресс не сохраняется: браузер запретил хранилище (приватный режим?)') } }
+  }
+
+  var phr = load(K.phr, null); if (!phr || !phr.cards || !phr.days) phr = { cards: {}, days: {}, newLimit: 15 }
+  var wrd = load(K.wrd, null); if (!wrd || !wrd.cards || !wrd.days) wrd = { cards: {}, days: {}, newLimit: 20, filters: null }
+  var mis = load(K.mis, null); if (!mis || !mis.items) mis = { items: {}, days: {} }
+  var data = null
+
+  function day() { return C.today() }
+  function dayStat(st) { var d = day(); if (!st.days[d]) st.days[d] = { minutes: 0, reviews: 0, newSeen: 0 }; return st.days[d] }
+  function todayCount() {
+    var d = day()
+    return (phr.days[d] ? phr.days[d].reviews : 0) + (wrd.days[d] ? wrd.days[d].reviews : 0) + (mis.days[d] || 0)
+  }
+  function refreshToday() { $('sToday').textContent = String(todayCount()) }
+
+  // ---------- Разблокировка ----------
+  var sealed = window.POCKET_SEALED
+
+  function start() {
+    refreshToday()
+    if (!C || !P) return message('Страница загрузилась не полностью - обнови её при сети.')
+    if (!sealed) return message('Нет данных. На ПК: npm run pocket:build (или pocket:publish для телефона).')
+    // Без HTTPS (адрес ПК по http://192.168...) шифра в браузере нет, а «неверный пароль» ввёл бы в заблуждение
+    if (!window.crypto || !crypto.subtle || typeof DecompressionStream === 'undefined')
+      return message(window.isSecureContext === false
+        ? 'Страница открыта не по HTTPS - расшифровка недоступна. Открывай адрес github.io.'
+        : 'Браузер устарел: нужен Chrome 80+ или Safari 16.4+.')
+    var stored = null
+    try { stored = localStorage.getItem(K.key) } catch (e) {}
+    if (!stored) return showLock('')
+    P.importKey(stored)
+      .then(function (key) { return P.unsealWithKey(sealed, key) })
+      .then(init)
+      .catch(function () { showLock('Данные обновились с другим паролем - введи пароль ещё раз.') })
+  }
+
+  function showLock(info) {
+    $('lockInfo').textContent = info
+    show('lock')
+    setTimeout(function () { $('pass').focus() }, 50)
+  }
+
+  $('lock').onsubmit = function (e) {
+    e.preventDefault()
+    var pass = $('pass').value
+    if (!pass) return
+    $('btnUnlock').disabled = true
+    $('lockInfo').textContent = 'Проверяю… (несколько секунд, только в первый раз)'
+    P.unseal(sealed, pass)
+      .then(function (r) {
+        return P.exportKey(r.key).then(function (raw) {
+          try { localStorage.setItem(K.key, raw) } catch (err) {}
+          $('pass').value = ''
+          init(r.json)
+        })
+      })
+      .catch(function () { $('lockInfo').textContent = 'Неверный пароль' })
+      .then(function () { $('btnUnlock').disabled = false })
+  }
+
+  $('btnForget').onclick = function () {
+    if (!confirm('Убрать сохранённый ключ? Прогресс останется, при следующем открытии нужен пароль.')) return
+    try { localStorage.removeItem(K.key) } catch (e) {}
+    data = null
+    showLock('')
+  }
+
+  function init(json) {
+    data = JSON.parse(json)
+    showHome()
+  }
+
+  // ---------- Очереди ----------
+  function wordAllowed(c) {
+    var p = wrd.cards[c.id]
+    if (p && p.status === 'excluded') return false
+    var f = wrd.filters
+    if (!f) return true
+    return f.domains.indexOf(c.domain) >= 0 && f.types.indexOf(c.type) >= 0 && f.sources.indexOf(c.source) >= 0
+  }
+  function queues() {
+    var d = day()
+    return {
+      mistakes: P.mistakeQueue(data.mistakes, mis.items, d, 30),
+      phrases: C.buildQueue(data.phrases, phr.cards, d, phr.newLimit || 15, dayStat(phr).newSeen || 0),
+      words: C.buildQueue(data.words.filter(wordAllowed), wrd.cards, d, wrd.newLimit || 20, dayStat(wrd).newSeen || 0),
+    }
+  }
+
+  function showHome() {
+    var q = queues()
+    $('cMis').textContent = String(q.mistakes.length)
+    $('cPhr').textContent = String(q.phrases.length)
+    $('cWrd').textContent = String(q.words.length)
+    var total = q.mistakes.length + q.phrases.length + q.words.length
+    $('homeTitle').textContent = total ? 'На сегодня ' + total + ' карточек' : 'На сегодня всё повторено 👍'
+    $('go15').disabled = $('go20').disabled = !total
+    $('dataInfo').textContent = 'данные от ' + new Date(data.builtAt).toLocaleDateString('ru-RU') + ' · фраз ' + data.phrases.length + ' · слов ' + data.words.length + ' · ошибок ' + data.mistakes.length
+    refreshToday()
+    show('home')
+  }
+
+  // ---------- Подход ----------
+  var BLOCK_RU = { mistakes: 'Свои ошибки', phrases: 'Фразы', words: 'Слова ПНР' }
+  var MODE_RU = {
+    choice: 'выбери правильную форму', type: 'впиши в пропуск', recall: 'вспомни по-английски',
+    recognize: 'узнай: что это значит?', listen: 'на слух: впиши пропущенное', fix: 'исправь выделенное',
+  }
+  var S = null // текущий подход
+  var cur = null // текущая карточка: { kind, item, mode, answered, retried }
+
+  function startSession(minutes) {
+    var q = queues()
+    var blocks = P.planBlocks(minutes, { mistakes: q.mistakes.length, phrases: q.phrases.length, words: q.words.length })
+    if (!blocks.length) return showHome()
+    S = { total: minutes * 60, elapsed: 0, blocks: blocks, bi: 0, queue: q[blocks[0].kind].slice(), pos: 0, blockElapsed: 0, retried: {},
+          stats: { mistakes: { right: 0, wrong: 0 }, phrases: { right: 0, wrong: 0 }, words: { right: 0, wrong: 0 } }, q: q }
+    clearInterval(S.timer)
+    S.timer = setInterval(tick, 1000)
+    acquireWakeLock()
+    show('session')
+    nextCard()
+  }
+
+  // Время идёт, только пока страница на экране (телефон в кармане - не считается)
+  function tick() {
+    if (!S || document.visibilityState !== 'visible') return
+    S.elapsed++
+    S.blockElapsed++
+    var kind = S.blocks[S.bi].kind
+    if (S.elapsed % 15 === 0) {
+      if (kind === 'phrases') { dayStat(phr).minutes += 0.25; save(K.phr, phr) }
+      if (kind === 'words') { dayStat(wrd).minutes += 0.25; save(K.wrd, wrd) }
+    }
+    renderClock()
+  }
+
+  function renderClock() {
+    var b = S.blocks[S.bi]
+    var left = Math.max(0, b.seconds - S.blockElapsed)
+    $('clock').textContent = (left ? Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2) : 'время блока вышло')
+    $('blockName').textContent = BLOCK_RU[b.kind] + ' · блок ' + (S.bi + 1) + ' из ' + S.blocks.length
+    $('bar').style.width = Math.min(100, Math.round((S.elapsed / S.total) * 100)) + '%'
+  }
+
+  function nextBlock() {
+    var b = S.blocks[S.bi]
+    // Блок кончился раньше времени - остаток переходит следующему
+    var spare = Math.max(0, b.seconds - S.blockElapsed)
+    S.bi++
+    if (S.bi >= S.blocks.length) return finishSession()
+    S.blocks[S.bi].seconds += spare
+    S.queue = S.q[S.blocks[S.bi].kind].slice()
+    S.pos = 0
+    S.blockElapsed = 0
+    nextCard()
+  }
+
+  function nextCard() {
+    var b = S.blocks[S.bi]
+    if (S.pos >= S.queue.length || S.blockElapsed >= b.seconds) return nextBlock()
+    var item = S.queue[S.pos]
+    renderClock()
+    if (b.kind === 'mistakes') showMistake(item)
+    else showCard(b.kind, item)
+  }
+
+  function resetCard() {
+    ;['choice', 'typeBox', 'revealBox', 'feedback', 'hintLine', 'btnHint', 'listenRow'].forEach(function (x) { $(x).classList.add('hidden') })
+    $('prompt').className = 'prompt'
+    $('prompt').textContent = ''
+    $('sub').textContent = ''
+    $('extraRow').innerHTML = ''
+    $('typeInput').value = ''
+    $('typeInput').placeholder = ''
+  }
+
+  function openInput(value, placeholder) {
+    $('typeInput').value = value || ''
+    $('typeInput').placeholder = placeholder || 'впиши по-английски'
+    $('typeBox').classList.remove('hidden')
+  }
+
+  // --- Фразы и слова ---
+  function maskSentence(cloze) {
+    return cloze.split(/(_____)/).map(function (part) { return part === '_____' ? part : part.replace(/[A-Za-z0-9]/g, '·') }).join('')
+  }
+
+  function showCard(kind, item) {
+    resetCard()
+    var st = kind === 'phrases' ? phr : wrd
+    var p = st.cards[item.id]
+    var mode = kind === 'phrases' ? C.chooseMode(item, p ? p.box : 0) : C.chooseGlossaryMode(item, p ? p.box : 0)
+    // Пропуска нет (пример = сама фраза) - вписывать нечего, остаётся «вспомнить»
+    if ((mode === 'type' || mode === 'listen' || mode === 'choice') && (!item.cloze || item.cloze === '_____')) mode = 'recall'
+    cur = { kind: kind, item: item, mode: mode, answered: false }
+    $('mode').textContent = MODE_RU[mode] + (p && p.seen ? ' · коробка ' + p.box : ' · новая')
+    if (mode === 'recognize') {
+      $('prompt').textContent = item.en
+      $('prompt').className = 'prompt big'
+      $('sub').textContent = 'Вспомни перевод, потом открой ответ.'
+      $('revealBox').classList.remove('hidden')
+      $('listenRow').classList.remove('hidden')
+      speak(item.en)
+    } else if (mode === 'recall') {
+      $('prompt').textContent = item.ru
+      $('sub').textContent = 'Скажи про себя по-английски, потом открой ответ.'
+      $('revealBox').classList.remove('hidden')
+    } else if (mode === 'type') {
+      $('prompt').textContent = item.cloze
+      $('sub').textContent = item.ru
+      openInput('', 'впиши пропущенное')
+    } else if (mode === 'listen') {
+      $('prompt').textContent = maskSentence(item.cloze)
+      $('prompt').className = 'prompt masked'
+      $('sub').textContent = 'Слушай пример (нужны наушники) и впиши пропущенное. ' + item.ru
+      openInput('', 'впиши пропущенное')
+      $('listenRow').classList.remove('hidden')
+      speak(item.context)
+    } else if (mode === 'choice') {
+      $('prompt').textContent = item.cloze
+      $('sub').textContent = item.ru
+      var box = $('choice')
+      box.innerHTML = ''
+      C.shuffle([item.en].concat(item.distractors.slice(0, 3))).forEach(function (opt) {
+        var btn = el('button', opt)
+        btn.dataset.value = opt
+        btn.onclick = function () { onChoice(btn) }
+        box.appendChild(btn)
+      })
+      box.classList.remove('hidden')
+    }
+    if (kind === 'words') {
+      var known = el('button', '✓ Уже знаю', 'link')
+      known.onclick = function () { manualWord('known') }
+      var skip = el('button', 'Не нужно', 'link')
+      skip.onclick = function () { manualWord('excluded') }
+      $('extraRow').appendChild(known)
+      $('extraRow').appendChild(skip)
+    }
+  }
+
+  function onChoice(btn) {
+    if (cur.answered) return
+    var ok = btn.dataset.value === cur.item.en
+    Array.prototype.forEach.call($('choice').children, function (x) {
+      x.disabled = true
+      if (x.dataset.value === cur.item.en) x.classList.add('right')
+    })
+    if (!ok) btn.classList.add('wrong')
+    gradeCard(ok ? 'right' : 'wrong')
+    feedback(ok ? 'Верно' : 'Неверно, правильно:', ok, false)
+    speak(cur.item.en)
+  }
+
+  function checkTyped() {
+    var input = $('typeInput').value
+    var r = C.checkAnswer(input, cur.item.en)
+    // Варианты через «/» или пояснение в скобках - засчитываем любой (как в глоссарии)
+    if (r === 'wrong') {
+      var alts = cur.item.en.replace(/\s*\(.*?\)/g, '').split(/\s*\/\s*/)
+      for (var i = 0; i < alts.length && r === 'wrong'; i++) r = C.checkAnswer(input, alts[i])
+    }
+    gradeCard(r === 'wrong' ? 'wrong' : 'right')
+    feedback(r === 'exact' ? 'Верно' : r === 'typo' ? 'Почти - опечатка, засчитано:' : 'Неверно, правильно:', r !== 'wrong', false)
+    speak(cur.item.en)
+  }
+
+  function gradeCard(g) {
+    var isPhr = cur.kind === 'phrases'
+    var st = isPhr ? phr : wrd
+    var before = st.cards[cur.item.id], ds = dayStat(st)
+    if (!before || !before.seen) ds.newSeen = (ds.newSeen || 0) + 1
+    st.cards[cur.item.id] = isPhr ? C.nextState(before, g, day()) : C.applyGrade(before, g, day())
+    ds.reviews += 1
+    save(isPhr ? K.phr : K.wrd, st)
+    countResult(g !== 'wrong')
+    refreshToday()
+  }
+
+  function manualWord(action) {
+    var before = wrd.cards[cur.item.id]
+    if (action === 'known') {
+      if (!before || !before.seen) dayStat(wrd).newSeen = (dayStat(wrd).newSeen || 0) + 1
+      wrd.cards[cur.item.id] = C.markKnown(before, day())
+    } else wrd.cards[cur.item.id] = C.markExcluded(before)
+    save(K.wrd, wrd)
+    var id = cur.item.id
+    S.queue = S.queue.slice(0, S.pos + 1).concat(S.queue.slice(S.pos + 1).filter(function (c) { return c.id !== id }))
+    advance()
+  }
+
+  // --- Свои ошибки ---
+  function showMistake(item) {
+    resetCard()
+    cur = { kind: 'mistakes', item: item, mode: 'fix', answered: false }
+    var p = mis.items[item.id]
+    $('mode').textContent = 'исправь выделенное · ' + item.categoryRu + (item.count > 1 ? ' · встречалась: ' + item.count : '') + (p ? '' : ' · новая')
+    var prompt = $('prompt')
+    var m = P.markSentence(item.sentence || '', item.wrong)
+    if (item.sentence && m.mark) {
+      prompt.appendChild(document.createTextNode(m.before))
+      prompt.appendChild(el('mark', m.mark))
+      prompt.appendChild(document.createTextNode(m.after))
+    } else prompt.appendChild(el('mark', item.wrong))
+    $('sub').textContent = 'Исправь выделенный кусок прямо в поле.'
+    // На телефоне удобнее поправить фразу, чем набирать её заново
+    openInput(item.wrong, item.wrong)
+    $('btnHint').classList.remove('hidden')
+    $('hintLine').textContent = 'подсказка: ' + item.hint
+  }
+
+  function answerMistake(input) {
+    var r = P.answerMistake(mis, cur.item, input, day())
+    mis = r.state
+    save(K.mis, mis)
+    countResult(r.correct)
+    refreshToday()
+    feedback(r.correct ? 'Верно' : input === null ? 'Правильно:' : 'Неверно, правильно:', r.correct, false)
+  }
+
+  function excludeMistake() {
+    if (!confirm('Убрать это упражнение насовсем? (Учитель-модель иногда ошибается.)')) return
+    mis = P.excludeMistake(mis, cur.item.id, day())
+    save(K.mis, mis)
+    var id = cur.item.id
+    S.queue = S.queue.slice(0, S.pos + 1).concat(S.queue.slice(S.pos + 1).filter(function (c) { return c.id !== id }))
+    advance()
+  }
+
+  // --- Общее ---
+  function countResult(ok) {
+    var s = S.stats[S.blocks[S.bi].kind]
+    if (ok) s.right++
+    else {
+      s.wrong++
+      // Ошибся - карточка ещё раз в конце блока (один раз)
+      if (!S.retried[cur.item.id]) { S.retried[cur.item.id] = true; S.queue.push(cur.item) }
+    }
+  }
+
+  function feedback(verdict, ok, needsGrade) {
+    cur.answered = true
+    $('typeBox').classList.add('hidden')
+    $('revealBox').classList.add('hidden')
+    $('verdict').innerHTML = ''
+    $('verdict').appendChild(el('span', verdict, ok === null ? '' : ok ? 'good' : 'bad'))
+    var it = cur.item
+    if (cur.kind === 'mistakes') {
+      $('answer').textContent = it.right
+      $('answerRu').textContent = it.explanationRu
+      $('ctx').textContent = it.fixed || ''
+    } else {
+      $('answer').textContent = it.en
+      $('answerRu').textContent = it.ru
+      $('ctx').textContent = it.context && it.context !== it.en ? it.context : ''
+    }
+    $('gradeRow').classList.toggle('hidden', !needsGrade)
+    $('nextRow').classList.toggle('hidden', needsGrade)
+    if (cur.kind === 'mistakes') {
+      $('extraRow').innerHTML = ''
+      var ex = el('button', 'Это не ошибка', 'link')
+      ex.onclick = excludeMistake
+      $('extraRow').appendChild(ex)
+    }
+    $('feedback').classList.remove('hidden')
+    if (!needsGrade) setTimeout(function () { $('btnNext').focus() }, 30)
+  }
+
+  function advance() {
+    if (!S) return
+    S.pos++
+    nextCard()
+  }
+
+  $('btnCheck').onclick = function () {
+    if (!cur || cur.answered) return
+    if (cur.kind === 'mistakes') answerMistake($('typeInput').value)
+    else checkTyped()
+  }
+  $('typeInput').onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); $('btnCheck').onclick() } }
+  $('btnDontKnow').onclick = function () {
+    if (!cur || cur.answered) return
+    if (cur.kind === 'mistakes') return answerMistake(null)
+    gradeCard('wrong')
+    feedback('Правильно:', false, false)
+    speak(cur.item.en)
+  }
+  $('btnHint').onclick = function () { $('hintLine').classList.remove('hidden') }
+  $('btnReveal').onclick = function () {
+    feedback('Ответ:', null, true)
+    if (cur.mode === 'recall') speak(cur.item.en)
+  }
+  $('btnListen').onclick = function () { speak(cur.mode === 'listen' ? cur.item.context : cur.item.en) }
+  $('gWrong').onclick = function () { gradeCard('wrong'); advance() }
+  $('gHard').onclick = function () { gradeCard('hard'); advance() }
+  $('gRight').onclick = function () { gradeCard('right'); advance() }
+  $('btnNext').onclick = function () { if (cur && cur.answered) advance() }
+  $('btnSpeak').onclick = function () { speak(cur.kind === 'mistakes' ? cur.item.fixed || cur.item.right : cur.item.en) }
+  $('btnSkipBlock').onclick = function () { if (S) { S.blockElapsed = S.blocks[S.bi].seconds; nextBlock() } }
+  $('btnStop').onclick = function () { if (S) finishSession() }
+  $('btnHome').onclick = showHome
+  $('go15').onclick = function () { startSession(15) }
+  $('go20').onclick = function () { startSession(20) }
+
+  function finishSession() {
+    clearInterval(S.timer)
+    releaseWakeLock()
+    stopSpeaking()
+    var list = $('doneList')
+    list.innerHTML = ''
+    var done = 0
+    ;['mistakes', 'phrases', 'words'].forEach(function (k) {
+      var s = S.stats[k], n = s.right + s.wrong
+      done += n
+      if (n) list.appendChild(el('p', BLOCK_RU[k] + ': ' + n + ' (верно ' + s.right + ', ошибок ' + s.wrong + ')'))
+    })
+    var min = Math.max(1, Math.round(S.elapsed / 60))
+    $('doneTitle').textContent = done ? 'Подход: ' + done + ' ответов за ' + min + ' мин' : 'Подход прерван'
+    if (done) list.appendChild(el('p', 'Ошибки вернутся завтра. Сегодня всего: ' + todayCount() + '.'))
+    S = null
+    cur = null
+    show('done')
+  }
+
+  // ---------- Озвучка ----------
+  var voices = []
+  function loadVoices() { if ('speechSynthesis' in window) voices = speechSynthesis.getVoices() }
+  if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices }
+  function voiceFor(lang) {
+    var re = lang === 'ru' ? /^ru/i : /^en/i
+    var list = voices.filter(function (v) { return re.test(v.lang) })
+    if (lang === 'en') return list.find(function (v) { return /en[-_]GB/i.test(v.lang) }) || list[0] || null
+    return list[0] || null
+  }
+  // Promise - когда договорено. Chrome на Android иногда не присылает onend - страховка по длине текста.
+  function speak(text, lang, rate) {
+    return new Promise(function (resolve) {
+      if (!('speechSynthesis' in window) || !text) return resolve()
+      speechSynthesis.cancel()
+      var u = new SpeechSynthesisUtterance(text)
+      var v = voiceFor(lang || 'en')
+      if (v) u.voice = v
+      u.lang = v ? v.lang : lang === 'ru' ? 'ru-RU' : 'en-GB'
+      u.rate = rate || 0.9
+      var finished = false
+      var fin = function () { if (!finished) { finished = true; resolve() } }
+      u.onend = fin
+      u.onerror = fin
+      setTimeout(fin, text.length * 110 + 2500)
+      speechSynthesis.speak(u)
+    })
+  }
+  function stopSpeaking() { if ('speechSynthesis' in window) speechSynthesis.cancel() }
+
+  // Экран не гаснет во время подхода и аудио (иначе Android глушит озвучку)
+  var wakeLock = null
+  function acquireWakeLock() {
+    if (!('wakeLock' in navigator)) return
+    navigator.wakeLock.request('screen').then(function (l) {
+      wakeLock = l
+      l.addEventListener('release', function () { if (wakeLock === l) wakeLock = null })
+    }).catch(function () {})
+  }
+  function releaseWakeLock() { if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null } }
+  // Браузер снимает блокировку, когда вкладку свернули; вернулись - берём снова
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && (S || A) && !wakeLock) acquireWakeLock()
+  })
+
+  // ---------- Аудио в наушниках ----------
+  var A = null
+  var aSet = load(K.audio, { dir: 'en', gap: 4 })
+  function renderAudioSettings() {
+    Array.prototype.forEach.call($('aDir').children, function (b) { b.classList.toggle('on', b.dataset.dir === aSet.dir) })
+    Array.prototype.forEach.call($('aGap').children, function (b) { b.classList.toggle('on', Number(b.dataset.gap) === aSet.gap) })
+  }
+  Array.prototype.forEach.call($('aDir').children, function (b) { b.onclick = function () { aSet.dir = b.dataset.dir; save(K.audio, aSet); renderAudioSettings() } })
+  Array.prototype.forEach.call($('aGap').children, function (b) { b.onclick = function () { aSet.gap = Number(b.dataset.gap); save(K.audio, aSet); renderAudioSettings() } })
+
+  $('goAudio').onclick = function () {
+    if (!('speechSynthesis' in window)) return alert('Браузер не умеет озвучивать текст')
+    var list = P.audioPlaylist(data.phrases, data.words.filter(wordAllowed), phr.cards, wrd.cards, day(), 150)
+    if (!list.length) return alert('Нечего слушать')
+    A = { list: list, i: 0, total: 15 * 60, elapsed: 0, paused: false, token: 0 }
+    A.timer = setInterval(function () {
+      if (!A || A.paused || document.visibilityState !== 'visible') return
+      A.elapsed++
+      var left = Math.max(0, A.total - A.elapsed)
+      $('aClock').textContent = Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2)
+      $('aBar').style.width = Math.min(100, Math.round((A.elapsed / A.total) * 100)) + '%'
+      if (!left) stopAudio()
+    }, 1000)
+    renderAudioSettings()
+    $('aNote').textContent = voiceFor('ru') ? 'Экран не гаснет, пока идёт аудио. Касаться не нужно.' : 'Русского голоса в телефоне нет - перевод только на экране. Экран не гаснет.'
+    $('aPause').textContent = '⏸ Пауза'
+    acquireWakeLock()
+    show('audio')
+    playLoop()
+  }
+
+  function wait(ms, token) {
+    return new Promise(function (resolve) { setTimeout(function () { resolve(A && A.token === token) }, ms) })
+  }
+
+  // Одна карточка: первая сторона -> пауза (вспомнить) -> вторая; в «рус → англ» английский звучит дважды
+  function playLoop() {
+    if (!A || A.paused) return
+    var token = ++A.token
+    var item = A.list[A.i % A.list.length]
+    var enFirst = aSet.dir === 'en'
+    $('aInfo').textContent = (item.kind === 'phrase' ? 'фраза' : 'слово') + ' · ' + (A.i + 1) + (A.i >= A.list.length ? ' (по второму кругу)' : '')
+    $('aFirst').textContent = enFirst ? item.en : item.ru
+    $('aSecond').textContent = ''
+    var hasRu = !!voiceFor('ru')
+    var first = enFirst ? speak(item.en, 'en', 0.85) : hasRu ? speak(item.ru, 'ru', 1) : wait(1500, token)
+    first
+      .then(function () { return A && A.token === token && wait(aSet.gap * 1000, token) })
+      .then(function (go) {
+        if (!go) return false
+        $('aSecond').textContent = enFirst ? item.ru : item.en
+        return enFirst ? (hasRu ? speak(item.ru, 'ru', 1) : wait(1500, token)) : speak(item.en, 'en', 0.85).then(function () { return wait(800, token) }).then(function (ok) { return ok && speak(item.en, 'en', 0.85) })
+      })
+      .then(function () { return A && A.token === token && wait(1500, token) })
+      .then(function (go) { if (go) { A.i++; playLoop() } })
+  }
+
+  $('aPause').onclick = function () {
+    if (!A) return
+    A.paused = !A.paused
+    A.token++
+    stopSpeaking()
+    $('aPause').textContent = A.paused ? '▶ Дальше' : '⏸ Пауза'
+    if (!A.paused) playLoop()
+  }
+  $('aNext').onclick = function () { if (!A) return; A.token++; stopSpeaking(); A.i++; A.paused = false; $('aPause').textContent = '⏸ Пауза'; playLoop() }
+  $('aStop').onclick = stopAudio
+  function stopAudio() {
+    if (!A) return
+    clearInterval(A.timer)
+    A.token++
+    var heard = A.i
+    A = null
+    stopSpeaking()
+    releaseWakeLock()
+    showHome()
+    if (heard) $('homeTitle').textContent = 'Прослушано: ' + heard + '. ' + $('homeTitle').textContent
+  }
+
+  // ---------- Экспорт ----------
+  $('btnExport').onclick = function () {
+    var blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), phrases: phr, glossary: wrd, mistakes: mis }, null, 1)], { type: 'application/json' })
+    var a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'pocket-progress-' + day() + '.json'
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove() }, 1000)
+  }
+
+  // Офлайн: service worker только по http(s)
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(function () {})
+
+  start()
+})()
+</script>
+</body>
+</html>
