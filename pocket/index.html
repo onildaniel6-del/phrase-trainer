@@ -81,7 +81,7 @@
   .drow .acts button { min-height:40px; padding:8px 10px; font-size:13px; text-align:center; flex:1; }
   .tag { display:inline-block; font:11px ui-monospace,Consolas,monospace; padding:1px 6px; border-radius:6px; margin-right:6px; border:1px solid var(--line); }
   .tag.hard { color:var(--bad); border-color:#7f1d1d; } .tag.easy { color:var(--ok); border-color:#065f46; } .tag.medium { color:var(--amber); border-color:#78350f; }
-  .tag.learned { color:var(--ok); } .tag.excluded { color:var(--dim); }
+  .tag.learned { color:var(--ok); } .tag.excluded { color:var(--dim); } .tag.prio { color:var(--amber); border-color:#78350f; }
   .reader-text { font-size:17px; line-height:1.6; }
   .reader-text p { margin:0 0 12px; overflow-wrap:anywhere; -webkit-user-select:text; user-select:text; }
   .reader-text .pg { font:12px ui-monospace,Consolas,monospace; color:var(--dim); margin:18px 0 8px; border-top:1px solid var(--line); padding-top:6px; }
@@ -385,6 +385,9 @@
 
   function start() {
     refreshToday()
+    // Прогресс живёт только в хранилище браузера: просим не чистить его самому (Safari чистит данные сайтов,
+    // которые давно не открывали; приложению «на экране Домой» постоянное хранилище даёт без вопросов)
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}) } catch (e) {}
     if (!C || !P) return message('Страница загрузилась не полностью - обнови её при сети.')
     if (!sealed) return message('Нет данных. На ПК: npm run pocket:build (или pocket:publish для телефона).')
     // Без HTTPS (адрес ПК по http://192.168...) шифра в браузере нет, а «неверный пароль» ввёл бы в заблуждение
@@ -458,6 +461,27 @@
   var meta = load(K.meta, {}) || {}
   var phrasesCache = null, dictIndex = null
   function cardsChanged() { phrasesCache = null; dictIndex = null }
+
+  // Другая вкладка («Тренажёр фраз», «Глоссарий», второй «Подход») сохранила прогресс или настройки - перечитываем.
+  // Иначе наше следующее сохранение целиком затёрло бы её ответы (доказано 17.11: 3 ответа «Тренажёра фраз» пропали
+  // после «✓ Выучено» здесь) и её настройки (новых в день, фильтры глоссария). Объект - тот же: на него ссылается код.
+  window.addEventListener('storage', function (e) {
+    if (e.key === K.phr || e.key === K.wrd) {
+      var st = e.key === K.phr ? phr : wrd, v = load(e.key, null)
+      if (!v || !v.cards || !v.days) return
+      Object.keys(v).forEach(function (k) { st[k] = v[k] })
+    } else if (e.key === K.mis) {
+      var m = load(K.mis, null)
+      if (!m || !m.items) return
+      mis = m
+    } else if (e.key === K.settings) SET = P.normalizeSettings(load(K.settings, null))
+    else if (e.key === K.inbox) { inbox = load(K.inbox, []); if (!Array.isArray(inbox)) inbox = []; cardsChanged() }
+    else if (e.key === K.extra) { extra = load(K.extra, []); if (!Array.isArray(extra)) extra = []; cardsChanged() }
+    else return
+    if (!data || S || A) return // идёт занятие - состояние уже свежее, экран не трогаем
+    if (!$('home').classList.contains('hidden')) showHome()
+    else if (!$('dict').classList.contains('hidden')) renderDict()
+  })
   // Фразы = колода ПК (свежая из файла / синхронизации) + колода сборки + добавленные с переводом
   function allPhrases() {
     if (phrasesCache) return phrasesCache
@@ -869,7 +893,8 @@
     }
     var st = kind === 'phrases' ? phr : wrd
     var p = st.cards[id]
-    st.cards[id] = action === 'learned' ? P.markLearned(p, d, SET, now) : action === 'excluded' ? P.markExcluded(p, now) : P.backToLearning(p, d, now)
+    st.cards[id] = action === 'priority-on' || action === 'priority-off' ? P.setPriority(p, action === 'priority-on', now)
+      : action === 'learned' ? P.markLearned(p, d, SET, now) : action === 'excluded' ? P.markExcluded(p, now) : P.backToLearning(p, d, now)
     save(kind === 'phrases' ? K.phr : K.wrd, st)
   }
 
@@ -989,7 +1014,7 @@
   $('goHard').onclick = function () { startSession(['mistakes', 'phrases', 'words'], hardQueues(), '🔥 Трудные · ') }
 
   // ---------- Словарь и прогресс ----------
-  var FILTER_RU = { learned: 'Выучено', learning: 'В изучении', hard: 'Трудные', 'new': 'Новые', excluded: 'Исключено', all: 'Все' }
+  var FILTER_RU = { learned: 'Выучено', learning: 'В изучении', hard: 'Трудные', priority: '★ Приоритет', 'new': 'Новые', excluded: 'Исключено', all: 'Все' }
   var STATUS_RU = { 'new': 'новая', learning: 'в изучении', learned: 'выучено', excluded: 'исключено' }
   var DIFF_RU = { easy: 'легко', medium: 'средне', hard: 'трудно' }
   var D = { kind: 'words', filter: 'learned', query: '', limit: 50, open: null }
@@ -1010,7 +1035,7 @@
     $('dictBar').style.width = pct + '%'
     var chips = $('dictFilter')
     chips.innerHTML = ''
-    ;['learned', 'learning', 'hard', 'new', 'excluded', 'all'].forEach(function (f) {
+    ;(D.kind === 'mistakes' ? ['learned', 'learning', 'hard', 'new', 'excluded', 'all'] : ['learned', 'learning', 'hard', 'priority', 'new', 'excluded', 'all']).forEach(function (f) {
       var b = el('button', FILTER_RU[f] + ' ' + sum[f], f === D.filter ? 'on' : '')
       b.onclick = function () { D.filter = f; D.limit = 50; D.open = null; renderDict() }
       chips.appendChild(b)
@@ -1030,6 +1055,8 @@
     row.appendChild(el('div', D.kind === 'mistakes' ? c.wrong + ' → ' + c.right : c.en, 'en'))
     row.appendChild(el('div', D.kind === 'mistakes' ? c.explanationRu : c.ru, 'ru'))
     var meta = el('div', null, 'meta')
+    var top = D.kind !== 'mistakes' && P.isPriority(p, SET)
+    if (top) meta.appendChild(el('span', '★ первым', 'tag prio'))
     meta.appendChild(el('span', STATUS_RU[st], 'tag ' + st))
     if (diff) meta.appendChild(el('span', DIFF_RU[diff], 'tag ' + diff))
     var info = []
@@ -1048,7 +1075,11 @@
       if (st === 'excluded') add('Вернуть в изучение', act('back'))
       else {
         if (st === 'learned') add('↺ Вернуть на заучивание', act('back'))
-        else add('✓ Выучено', act('learned'))
+        else {
+          // ★ - только невыученным фразам и словам: идут в занятии первыми
+          if (D.kind !== 'mistakes') add(top ? '☆ Снять приоритет' : '★ Учить первым', act(top ? 'priority-off' : 'priority-on'))
+          add('✓ Выучено', act('learned'))
+        }
         add('✕ Исключить', act('excluded'))
       }
       row.appendChild(acts)

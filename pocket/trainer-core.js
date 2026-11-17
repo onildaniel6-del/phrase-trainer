@@ -49,13 +49,24 @@
     return s
   }
 
+  // ★ Приоритет (словарь «Подхода», поиск глоссария): невыученное с приоритетом - первым в очереди
+  function isTop(p) {
+    return !!(p && p.priority && p.status !== 'learned' && p.status !== 'excluded' && !p.learnedAt)
+  }
+  function topFirst(list, progress) {
+    return list.filter(function (c) { return isTop(progress[c.id]) }).concat(list.filter(function (c) { return !isTop(progress[c.id]) }))
+  }
+
   // Очередь на сессию: сначала просроченные (меньшая коробка раньше), потом новые в пределах дневного лимита.
+  // Исключённые («✕» в словаре «Подхода», «Не нужно» в глоссарии) - никогда; ★ приоритетные - первыми в своей группе,
+  // а приоритетные повторения - впереди всего.
   function buildQueue(cards, progress, day, newLimit, newSeenToday) {
     var due = []
     var fresh = []
     for (var i = 0; i < cards.length; i++) {
       var c = cards[i]
       var p = progress[c.id]
+      if (p && p.status === 'excluded') continue
       if (!p || p.seen === 0) fresh.push(c)
       else if (p.due <= day) due.push(c)
     }
@@ -65,7 +76,16 @@
       return pa.box - pb.box || (pa.due < pb.due ? -1 : pa.due > pb.due ? 1 : 0)
     })
     var room = Math.max(0, newLimit - newSeenToday)
-    return due.concat(fresh.slice(0, room))
+    due = topFirst(due, progress)
+    var topDue = due.filter(function (c) { return isTop(progress[c.id]) })
+    var newOnes = topFirst(fresh, progress).slice(0, room)
+    var topNew = newOnes.filter(function (c) { return isTop(progress[c.id]) })
+    return topDue.concat(topNew, due.slice(topDue.length), newOnes.slice(topNew.length))
+  }
+
+  // ★ / ☆: снятие хранится как priority:false с временем (слияние телефон <-> ПК - побеждает позднее)
+  function setPriority(p, on, nowIso) {
+    return Object.assign(emptyProgress(), p, { priority: !!on, priorityAt: nowIso || new Date().toISOString() })
   }
 
   // Тип упражнения по коробке: выбор формы -> ввод -> вспомнить по смыслу.
@@ -199,6 +219,8 @@
     addDays: addDays,
     nextState: nextState,
     buildQueue: buildQueue,
+    setPriority: setPriority,
+    isTop: isTop,
     chooseMode: chooseMode,
     normalize: normalize,
     checkAnswer: checkAnswer,
