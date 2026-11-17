@@ -211,7 +211,17 @@
         <p class="muted" style="margin:0 0 8px">Через сколько дней выученная карточка вернётся один раз на проверку. Ошибся - она снова в изучении.</p>
         <div class="seg" id="setCheck"><button data-v="14">14 дн</button><button data-v="30">30 дн</button><button data-v="60">60 дн</button><button data-v="0">никогда</button></div>
       </div>
-      <p class="small">Новый порог применяется к следующим ответам; уже выученные остаются выученными. Вернуть карточку - в «Словаре».</p>
+      <div>
+        <p class="prompt" style="font-size:17px">😌 Легко - выучено после</p>
+        <p class="muted" style="margin:0 0 8px">Для фраз и слов, отмеченных в «Словаре» как «легко»: сколько раз подряд ответить верно</p>
+        <div class="seg" id="setEasy"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button></div>
+      </div>
+      <div>
+        <p class="prompt" style="font-size:17px">😣 Трудно - выучено после</p>
+        <p class="muted" style="margin:0 0 8px">Для отмеченных «трудно» (они же идут в «🔥 Трудные»). Больше 5 - после 5-го ответа повтор раз в 14 дней, пока серия не наберётся</p>
+        <div class="seg" id="setHard"><button data-v="5">5</button><button data-v="6">6</button><button data-v="8">8</button><button data-v="10">10</button></div>
+      </div>
+      <p class="small">Новый порог применяется к следующим ответам; уже выученные остаются выученными. Вернуть карточку, отметить «легко / трудно» - в «Словаре».</p>
     </div>
   </div>
 
@@ -680,7 +690,8 @@
     $('goHard').disabled = !nh
     var learned = P.summarize(allPhrases(), phr.cards, SET).learned + P.summarize(data.words, wrd.cards, SET).learned + P.summarize(data.mistakes, mis.items, SET).learned
     $('homeNote').textContent = 'Без лимитов: все карточки, которые пора повторить, и все новые. Выучено: ' + learned +
-      '. Карточка выучена после ' + SET.learnedAfter + ' верных ответов подряд' + (SET.checkDays ? ', проверка через ' + SET.checkDays + ' дн.' : '') + ' (⚙).'
+      '. Карточка выучена после ' + SET.learnedAfter + ' верных ответов подряд (легко - ' + SET.easyAfter + ', трудно - ' + SET.hardAfter + ')' +
+      (SET.checkDays ? ', проверка через ' + SET.checkDays + ' дн.' : '') + ' (⚙).'
     $('dataInfo').textContent = 'данные от ' + new Date(data.builtAt).toLocaleDateString('ru-RU') + ' · фраз ' + allPhrases().length + ' · слов ' + data.words.length + ' · ошибок ' + data.mistakes.length
     refreshToday()
     show('home')
@@ -786,7 +797,8 @@
     cur = { kind: kind, item: item, mode: mode, answered: false }
     var stt = P.statusOf(p, SET)
     $('mode').textContent = (stt === 'learned' ? 'проверка выученного · ' : '') + MODE_RU[mode] +
-      (p && p.seen ? ' · подряд верно ' + Math.min(p.box, SET.learnedAfter) + ' из ' + SET.learnedAfter : ' · новая')
+      (p && p.seen ? ' · подряд верно ' + Math.min(P.runOf(p), P.thresholdFor(p, SET)) + ' из ' + P.thresholdFor(p, SET) : ' · новая') +
+      (p && p.level ? ' · ' + DIFF_RU[p.level] : '')
     if (mode === 'understand') {
       $('prompt').textContent = item.en
       $('prompt').className = 'prompt big'
@@ -893,7 +905,8 @@
     }
     var st = kind === 'phrases' ? phr : wrd
     var p = st.cards[id]
-    st.cards[id] = action === 'priority-on' || action === 'priority-off' ? P.setPriority(p, action === 'priority-on', now)
+    st.cards[id] = action.indexOf('level-') === 0 ? P.setLevel(p, action.slice(6), now)
+      : action === 'priority-on' || action === 'priority-off' ? P.setPriority(p, action === 'priority-on', now)
       : action === 'learned' ? P.markLearned(p, d, SET, now) : action === 'excluded' ? P.markExcluded(p, now) : P.backToLearning(p, d, now)
     save(kind === 'phrases' ? K.phr : K.wrd, st)
   }
@@ -1058,7 +1071,8 @@
     var top = D.kind !== 'mistakes' && P.isPriority(p, SET)
     if (top) meta.appendChild(el('span', '★ первым', 'tag prio'))
     meta.appendChild(el('span', STATUS_RU[st], 'tag ' + st))
-    if (diff) meta.appendChild(el('span', DIFF_RU[diff], 'tag ' + diff))
+    // ✎ - отметка вручную (свой порог «выучено»), без ✎ - по истории ответов
+    if (diff) meta.appendChild(el('span', DIFF_RU[diff] + (p && p.level ? ' ✎' : ''), 'tag ' + diff))
     var info = []
     if (c.topic) info.push(c.topic)
     if (p && p.seen) info.push('ответов ' + p.seen + ', ошибок ' + (p.wrong || 0))
@@ -1078,6 +1092,13 @@
         else {
           // ★ - только невыученным фразам и словам: идут в занятии первыми
           if (D.kind !== 'mistakes') add(top ? '☆ Снять приоритет' : '★ Учить первым', act(top ? 'priority-off' : 'priority-on'))
+          // «Легко / трудно» - свой порог «выучено» из ⚙; «Обычно» снимает отметку
+          if (D.kind !== 'mistakes') {
+            var lv = p && p.level
+            if (lv !== 'easy') add('😌 Легко · ' + SET.easyAfter, act('level-easy'))
+            if (lv !== 'hard') add('😣 Трудно · ' + SET.hardAfter, act('level-hard'))
+            if (lv) add('Обычно · ' + SET.learnedAfter, act('level-'))
+          }
           add('✓ Выучено', act('learned'))
         }
         add('✕ Исключить', act('excluded'))
@@ -1496,15 +1517,23 @@
   }
 
   // ---------- Настройки ----------
+  // Кнопки-сегменты настроек: id блока -> поле SET
+  var SET_SEGS = { setLearned: 'learnedAfter', setCheck: 'checkDays', setEasy: 'easyAfter', setHard: 'hardAfter' }
   function renderSettings() {
-    Array.prototype.forEach.call($('setLearned').children, function (b) { b.classList.toggle('on', Number(b.dataset.v) === SET.learnedAfter) })
-    Array.prototype.forEach.call($('setCheck').children, function (b) { b.classList.toggle('on', Number(b.dataset.v) === SET.checkDays) })
+    Object.keys(SET_SEGS).forEach(function (id) {
+      Array.prototype.forEach.call($(id).children, function (b) { b.classList.toggle('on', Number(b.dataset.v) === SET[SET_SEGS[id]]) })
+    })
   }
-  Array.prototype.forEach.call($('setLearned').children, function (b) {
-    b.onclick = function () { SET = P.normalizeSettings({ learnedAfter: Number(b.dataset.v), checkDays: SET.checkDays }); save(K.settings, SET); renderSettings() }
-  })
-  Array.prototype.forEach.call($('setCheck').children, function (b) {
-    b.onclick = function () { SET = P.normalizeSettings({ learnedAfter: SET.learnedAfter, checkDays: Number(b.dataset.v) }); save(K.settings, SET); renderSettings() }
+  Object.keys(SET_SEGS).forEach(function (id) {
+    Array.prototype.forEach.call($(id).children, function (b) {
+      b.onclick = function () {
+        var next = Object.assign({}, SET)
+        next[SET_SEGS[id]] = Number(b.dataset.v)
+        SET = P.normalizeSettings(next)
+        save(K.settings, SET)
+        renderSettings()
+      }
+    })
   })
   $('goSettings').onclick = function () { renderSettings(); show('settings') }
   $('setBack').onclick = showHome

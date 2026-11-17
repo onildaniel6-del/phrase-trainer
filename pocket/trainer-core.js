@@ -30,20 +30,25 @@
   // grade: 'wrong' | 'hard' | 'right'
   function nextState(p, grade, day) {
     var s = Object.assign(emptyProgress(), p)
+    // streak - верных подряд: по нему «Подход» считает «выучено» (порог «легко / трудно» бывает выше 5-й коробки)
+    var run = typeof s.streak === 'number' ? s.streak : s.box
     s.seen += 1
     s.last = day
     if (grade === 'wrong') {
       s.wrong += 1
       s.box = 1
+      s.streak = 0
       s.due = day // вернётся сегодня в конце очереди и завтра снова
       return s
     }
     s.correct += 1
     if (grade === 'hard') {
       s.box = Math.max(1, s.box)
+      s.streak = run
       s.due = addDays(day, 1)
       return s
     }
+    s.streak = run + 1
     s.box = Math.min(MAX_BOX, s.box + 1)
     s.due = addDays(day, INTERVALS[s.box])
     return s
@@ -201,6 +206,7 @@
     s.status = 'learning'
     s.manual = false
     s.box = 1
+    s.streak = 0
     s.due = day
     delete s.learnedAt
     return s
