@@ -112,6 +112,8 @@
   .dlg-who { font:12px ui-monospace,Consolas,monospace; color:var(--dim); margin-bottom:2px; }
   label.btn { flex:1; text-align:center; font:inherit; background:#1f2937; border:1px solid #374151; border-radius:12px; padding:14px; cursor:pointer; min-height:48px; }
   .seg { display:flex; gap:6px; }
+  .aacts { display:flex; flex-wrap:wrap; gap:6px; }
+  .aacts button { flex:1 1 45%; min-height:44px; padding:8px; font-size:13px; text-align:center; }
   .seg button { flex:1; text-align:center; padding:10px; min-height:44px; font-size:14px; }
   .seg button.on { border-color:var(--blue); color:#bfdbfe; background:#172554; }
   .audio-en { font-size:24px; font-weight:600; margin:6px 0; overflow-wrap:anywhere; }
@@ -327,6 +329,9 @@
     <div class="top"><span class="mode" style="margin:0">аудио · без рук</span><span class="clock" id="aClock"></span></div>
     <div class="bar" style="margin-bottom:14px"><div id="aBar"></div></div>
     <div class="panel">
+      <div class="seg" id="aSrc" style="margin-bottom:8px">
+        <button data-src="phrases">фразы</button><button data-src="words">слова</button><button data-src="all">всё</button>
+      </div>
       <div class="seg" id="aDir">
         <button data-dir="en">англ → рус<br><span class="small">понимать</span></button>
         <button data-dir="ru">рус → англ<br><span class="small">вспоминать</span></button>
@@ -340,16 +345,22 @@
         <div class="audio-ru" id="aSecond"></div>
       </div>
       <div class="row">
+        <button id="aPrev">⏮ Назад</button>
         <button id="aPause">⏸ Пауза</button>
-        <button id="aNext">⏭ Дальше</button>
+        <button id="aNext">⏭ Вперёд</button>
         <button id="aStop">⏹ Стоп</button>
+      </div>
+      <!-- На паузе: то же, что в словаре, для текущей карточки -->
+      <div id="aActs" class="hidden" style="margin-top:12px">
+        <p class="small" id="aActsInfo" style="margin:0 0 8px"></p>
+        <div class="aacts" id="aActsBtns"></div>
       </div>
       <p class="small" id="aNote" style="margin-top:12px"></p>
     </div>
   </div>
 </div>
 
-<script>if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) document.getElementById('toMenu').hidden = false</script>
+<script>if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && !window.POCKET_PORTABLE) document.getElementById('toMenu').hidden = false</script>
 <script src="trainer-core.js"></script>
 <script src="pocket-core.js"></script>
 <script src="data.js"></script>
@@ -454,7 +465,7 @@
     if (data.progress && load(K.merged, '') !== data.builtAt) {
       var r = applyMerge(data.progress)
       save(K.merged, data.builtAt)
-      if (r.phrases + r.glossary + r.mistakes) note = 'С ПК подтянуто: фраз ' + r.phrases + ', слов ' + r.glossary + ', ошибок ' + r.mistakes
+      if (r.phrases + r.glossary + r.mistakes || r.settings) note = 'С ПК подтянуто: фраз ' + r.phrases + ', слов ' + r.glossary + ', ошибок ' + r.mistakes + (r.settings ? ', настройки' : '')
     }
     setSyncInfo(note)
     showHome()
@@ -465,7 +476,10 @@
   // База - на ПК (файлы private/). На ПК (localhost) «Подход» синхронизируется с ней сам через /api/trainer/pocket-sync;
   // телефон -> ПК - файл «Экспорт» (прогресс + добавленные слова) -> «Импорт» на ПК; ПК -> телефон - при публикации
   // или файлом «Экспорт» с ПК (прогресс + колода ПК с новыми словами и фразами-примерами).
-  var LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+  // Другой ПК («Подход» с флешки, npm run pocket:portable): тоже localhost, но базы ПК там нет - ведём себя как
+  // телефон (экспорт / импорт файлом). Флаг ставит в страницу сервер папки (server.ps1).
+  var PORTABLE = !!window.POCKET_PORTABLE
+  var LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && !PORTABLE
   var inbox = load(K.inbox, []); if (!Array.isArray(inbox)) inbox = []
   var extra = load(K.extra, []); if (!Array.isArray(extra)) extra = []
   var meta = load(K.meta, {}) || {}
@@ -507,6 +521,7 @@
       glossary: { cards: wrd.cards, days: wrd.days },
       mistakes: { items: mis.items, days: mis.days || {} },
       inbox: inbox.slice(),
+      settings: SET, // пороги и проверка - на другое устройство (позднее изменение побеждает)
     }
     if (LOCAL) b.cards = extra // с ПК - колода целиком: новые слова попадут на телефон без публикации
     return b
@@ -516,6 +531,7 @@
     wrd.cards = merged.glossary.cards; wrd.days = merged.glossary.days
     mis = { items: merged.mistakes.items, days: merged.mistakes.days }
     save(K.phr, phr); save(K.wrd, wrd); save(K.mis, mis)
+    if (merged.settings) { SET = P.normalizeSettings(merged.settings); save(K.settings, SET) }
   }
   // Добавленное, которое уже есть в колоде (тем же id или тем же текстом), из «Добавленных» уходит
   function pruneInbox() {
@@ -599,7 +615,7 @@
   }
   $('btnExport').onclick = function () {
     syncPc().then(function () {
-      var name = 'podhod-' + (LOCAL ? 'pc' : 'phone') + '-' + day() + '.json'
+      var name = 'podhod-' + (LOCAL ? 'pc' : PORTABLE ? 'pc2' : 'phone') + '-' + day() + '.json'
       var text = JSON.stringify(bundle())
       meta.exportedAt = nowIso()
       save(K.meta, meta)
@@ -607,7 +623,8 @@
       // На телефоне - меню «Поделиться»: сразу в Telegram / почту; иначе - скачать файл
       var file = null
       try { file = new File([text], name, { type: 'application/json' }) } catch (e) {}
-      if (!LOCAL && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      // На другом ПК - всегда файлом в «Загрузки» (меню «Поделиться» Windows там только мешает)
+      if (!LOCAL && !PORTABLE && file && navigator.canShare && navigator.canShare({ files: [file] })) {
         return navigator.share({ files: [file], title: 'Подход: прогресс' }).catch(function (e) { if (!e || e.name !== 'AbortError') download(text, name) })
       }
       download(text, name)
@@ -624,6 +641,7 @@
       meta.importedAt = nowIso()
       save(K.meta, meta)
       setSyncInfo('Импорт: обновлено фраз ' + r.phrases + ', слов ' + r.glossary + ', ошибок ' + r.mistakes + (r.cards ? ', новых карточек ' + r.cards : '') +
+        (r.settings ? ', настройки (⚙) - из файла' : other.settings ? '' : '. В файле нет настроек - он из старой версии') +
         (Array.isArray(other.inbox) && other.inbox.length ? ', добавленных слов ' + other.inbox.length : ''))
       showHome()
       return syncPc()
@@ -1529,6 +1547,7 @@
       b.onclick = function () {
         var next = Object.assign({}, SET)
         next[SET_SEGS[id]] = Number(b.dataset.v)
+        next.changedAt = nowIso() // для синхронизации: позднее изменение побеждает на другом устройстве
         SET = P.normalizeSettings(next)
         save(K.settings, SET)
         renderSettings()
@@ -1536,7 +1555,7 @@
     })
   })
   $('goSettings').onclick = function () { renderSettings(); show('settings') }
-  $('setBack').onclick = showHome
+  $('setBack').onclick = function () { showHome(); if (LOCAL) syncPc() } // настройки - сразу в базу ПК
 
   function finishSession() {
     clearInterval(S.timer)
@@ -1607,19 +1626,43 @@
   // ---------- Аудио в наушниках ----------
   var A = null
   var aSet = load(K.audio, { dir: 'en', gap: 4 })
+  if (['phrases', 'words', 'all'].indexOf(aSet.src) < 0) aSet.src = 'all'
   function renderAudioSettings() {
+    Array.prototype.forEach.call($('aSrc').children, function (b) { b.classList.toggle('on', b.dataset.src === aSet.src) })
     Array.prototype.forEach.call($('aDir').children, function (b) { b.classList.toggle('on', b.dataset.dir === aSet.dir) })
     Array.prototype.forEach.call($('aGap').children, function (b) { b.classList.toggle('on', Number(b.dataset.gap) === aSet.gap) })
   }
   Array.prototype.forEach.call($('aDir').children, function (b) { b.onclick = function () { aSet.dir = b.dataset.dir; save(K.audio, aSet); renderAudioSettings() } })
   Array.prototype.forEach.call($('aGap').children, function (b) { b.onclick = function () { aSet.gap = Number(b.dataset.gap); save(K.audio, aSet); renderAudioSettings() } })
+  // Что слушать: фразы / слова / всё (запрос владельца 21.11). Смена на ходу - новый список с начала.
+  Array.prototype.forEach.call($('aSrc').children, function (b) {
+    b.onclick = function () {
+      var list = audioList(b.dataset.src)
+      if (!list.length) return alert('В «' + b.textContent + '» слушать нечего: всё выучено или исключено')
+      aSet.src = b.dataset.src
+      save(K.audio, aSet)
+      renderAudioSettings()
+      if (!A) return
+      A.list = list
+      A.i = 0
+      A.token++
+      stopSpeaking()
+      if (A.paused) { showAudioItem(); renderActs() } else playLoop()
+    }
+  })
+  // Вперемешку, но ★ «учить первым» и трудные - первыми; исключённое и выученное не звучат (audioPlaylist)
+  function audioList(src) {
+    return P.audioPlaylist(src === 'words' ? [] : allPhrases(), src === 'phrases' ? [] : data.words.filter(wordAllowed), phr.cards, wrd.cards, day())
+  }
 
   $('goAudio').onclick = function () {
     if (!('speechSynthesis' in window)) return alert('Браузер не умеет озвучивать текст')
     // Без лимита времени: играет, пока не нажмёшь «Стоп»
-    var list = P.audioPlaylist(allPhrases(), data.words.filter(wordAllowed), phr.cards, wrd.cards, day())
+    var list = audioList(aSet.src)
+    if (!list.length && aSet.src !== 'all') { aSet.src = 'all'; save(K.audio, aSet); list = audioList('all') }
     if (!list.length) return alert('Нечего слушать')
-    A = { list: list, i: 0, elapsed: 0, paused: false, token: 0 }
+    A = { list: list, i: 0, elapsed: 0, paused: false, token: 0, dirty: false }
+    $('aActs').classList.add('hidden')
     $('aClock').textContent = '0:00'
     A.timer = setInterval(function () {
       if (!A || A.paused || document.visibilityState !== 'visible') return
@@ -1640,14 +1683,57 @@
   }
 
   // Одна карточка: первая сторона -> пауза (вспомнить) -> вторая; в «рус → англ» английский звучит дважды
-  function playLoop() {
-    if (!A || A.paused) return
-    var token = ++A.token
-    var item = A.list[A.i % A.list.length]
+  function audioItem() { return A && A.list.length ? A.list[A.i % A.list.length] : null }
+  // Текущая карточка на экране (без звука): при смене, назад / вперёд на паузе
+  function showAudioItem() {
+    var item = audioItem()
+    if (!item) return
     var enFirst = aSet.dir === 'en'
     $('aInfo').textContent = (item.kind === 'phrase' ? 'фраза' : 'слово') + ' · ' + ((A.i % A.list.length) + 1) + ' / ' + A.list.length + (A.i >= A.list.length ? ' (новый круг)' : '')
     $('aFirst').textContent = enFirst ? item.en : item.ru
-    $('aSecond').textContent = ''
+    $('aSecond').textContent = A.paused ? (enFirst ? item.ru : item.en) : ''
+  }
+
+  // На паузе - действия словаря для текущей карточки (запрос владельца 21.11): ★, легко / трудно / обычно, ✕.
+  // Пишутся в прогресс сразу (видно в «Словаре»), на ПК уходят в базу при «Стоп».
+  function renderActs() {
+    var item = audioItem()
+    var on = !!(A && A.paused && item)
+    $('aActs').classList.toggle('hidden', !on)
+    if (!on) return
+    var kind = item.kind === 'phrase' ? 'phrases' : 'words'
+    var p = (kind === 'phrases' ? phr : wrd).cards[item.id]
+    var top = P.isPriority(p, SET), lv = p && p.level
+    $('aActsInfo').textContent = (top ? '★ учить первым · ' : '') + (lv ? DIFF_RU[lv] + ' ✎' : 'обычная') + ' · изменения сразу в «Словаре»'
+    var box = $('aActsBtns')
+    box.innerHTML = ''
+    var add = function (label, action) { var b = el('button', label); b.onclick = function () { audioAct(kind, item, action) }; box.appendChild(b) }
+    add(top ? '☆ Снять приоритет' : '★ Учить первым', top ? 'priority-off' : 'priority-on')
+    if (lv !== 'easy') add('😌 Легко · ' + SET.easyAfter, 'level-easy')
+    if (lv !== 'hard') add('😣 Трудно · ' + SET.hardAfter, 'level-hard')
+    if (lv) add('Обычно · ' + SET.learnedAfter, 'level-')
+    add('✕ Исключить', 'excluded')
+  }
+  function audioAct(kind, item, action) {
+    applyManual(kind, item.id, action)
+    A.dirty = true
+    if (action === 'excluded') {
+      // Исключённая больше не звучит: убираем из списка, на её место встаёт следующая
+      var idx = A.i % A.list.length
+      A.list.splice(idx, 1)
+      if (!A.list.length) return stopAudio()
+      A.i = idx % A.list.length
+      showAudioItem()
+    }
+    renderActs()
+  }
+
+  function playLoop() {
+    if (!A || A.paused) return
+    var token = ++A.token
+    var item = audioItem()
+    var enFirst = aSet.dir === 'en'
+    showAudioItem()
     var hasRu = !!voiceFor('ru')
     var first = enFirst ? speak(item.en, 'en', 0.85) : hasRu ? speak(item.ru, 'ru', 1) : wait(1500, token)
     first
@@ -1666,20 +1752,33 @@
     A.paused = !A.paused
     A.token++
     stopSpeaking()
-    $('aPause').textContent = A.paused ? '▶ Дальше' : '⏸ Пауза'
+    $('aPause').textContent = A.paused ? '▶ Играть' : '⏸ Пауза'
+    if (A.paused) showAudioItem() // на паузе видно и перевод - решить, что делать с карточкой
+    renderActs()
     if (!A.paused) playLoop()
   }
-  $('aNext').onclick = function () { if (!A) return; A.token++; stopSpeaking(); A.i++; A.paused = false; $('aPause').textContent = '⏸ Пауза'; playLoop() }
+  // Назад / вперёд: на паузе - листаем и отмечаем, во время звучания - сразу играет выбранная
+  function audioStep(d) {
+    if (!A) return
+    A.token++
+    stopSpeaking()
+    A.i = Math.max(0, A.i + d)
+    if (A.paused) { showAudioItem(); renderActs() } else playLoop()
+  }
+  $('aPrev').onclick = function () { audioStep(-1) }
+  $('aNext').onclick = function () { audioStep(1) }
   $('aStop').onclick = stopAudio
   function stopAudio() {
     if (!A) return
     clearInterval(A.timer)
     A.token++
-    var heard = A.i
+    var heard = A.i, dirty = A.dirty
     A = null
+    $('aActs').classList.add('hidden')
     stopSpeaking()
     releaseWakeLock()
     showHome()
+    if (dirty && LOCAL) syncPc() // отметки из аудио - в базу ПК
     if (heard) $('homeTitle').textContent = 'Прослушано: ' + heard + '. ' + $('homeTitle').textContent
   }
 
